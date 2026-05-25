@@ -1,0 +1,41 @@
+name: bitbucket.get_pr_diff
+version: 1.0.0
+description: Fetch the unified diff and metadata for a PR.
+
+transport: { kind: mcp, server: bitbucket, method: get_pr_diff }
+
+input_schema:
+  type: object
+  required: [project, repo, pr_id]
+  properties:
+    project: { type: string }
+    repo:    { type: string }
+    pr_id:   { type: string }
+
+output_schema:
+  type: object
+  properties:
+    pr:
+      type: object
+      properties:
+        id:       { type: string }
+        title:    { type: string }
+        author:   { type: string }
+        base:     { type: string }
+        head:     { type: string }
+        state:    { enum: [open, merged, declined] }
+    diff:
+      type: array
+      items:
+        type: object
+        properties:
+          path:     { type: string }
+          status:   { enum: [added, modified, deleted, renamed] }
+          hunks:    { type: array, items: { type: object } }
+          additions: { type: integer }
+          deletions: { type: integer }
+    linked_tickets: { type: array, items: { type: string } }
+
+scopes: [bitbucket:read]
+budget: { max_calls_per_minute_per_user: 60 }
+observability: { trace: true, audit: true }

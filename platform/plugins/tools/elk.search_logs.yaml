@@ -1,0 +1,39 @@
+name: elk.search_logs
+version: 1.0.0
+description: Search ELK for log events. Returns aggregated samples, not raw firehose.
+
+transport: { kind: mcp, server: elk, method: search }
+
+input_schema:
+  type: object
+  required: [query]
+  properties:
+    query:   { type: string, description: "KQL/Lucene query" }
+    service: { type: string }
+    env:     { enum: [dev, staging, prod], default: prod }
+    from:    { type: string, format: date-time }
+    to:      { type: string, format: date-time }
+    aggregate_by: { enum: [error_signature, level, service], default: error_signature }
+    sample_per_bucket: { type: integer, default: 3, maximum: 10 }
+
+output_schema:
+  type: object
+  properties:
+    buckets:
+      type: array
+      items:
+        type: object
+        properties:
+          key:        { type: string }
+          count:      { type: integer }
+          first_seen: { type: string, format: date-time }
+          last_seen:  { type: string, format: date-time }
+          samples:    { type: array, items: { type: object } }
+
+scopes: [elk:read]
+pii:
+  scrub_fields_in_output: [user_email, ip_address, session_id]
+budget:
+  max_calls_per_minute_per_user: 30
+  max_buckets_returned: 50
+observability: { trace: true, audit: true }

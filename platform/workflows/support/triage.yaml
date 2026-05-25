@@ -1,0 +1,96 @@
+name: support.triage
+version: 0.5.0
+description: Triage an incoming support ticket; find similar resolved tickets; draft a customer response.
+owners: [team:support-platform]
+
+triggers:
+  - type: jira.issue.created
+    filter: { project: SUPP }
+  - type: manual
+
+inputs:
+  ticket_key: { type: string, required: true }
+
+sla:    { p95_seconds: 45 }
+budget: { max_cost_usd: 0.20, max_tools: 20 }
+
+agent: agents/support/triage-assistant@^1.0
+
+steps:
+  - id: triage
+    skill: triage-classify@^1.0
+    with: { ticket_key: $.inputs.ticket_key }
+
+  - id: similar
+    skill: find-similar-tickets@^1.0
+    with:
+      ticket_key: $.inputs.ticket_key
+      k: 8
+
+  - id: draft
+    skill: draft-response@^1.0
+    with:
+      ticket_key:      $.inputs.ticket_key
+      triage:          $.triage
+      similar:         $.similar.similar
+      active_incident: $.triage.active_incident
+
+  - id: redact
+    skill: redact-pii@^1.0
+    with:
+      text: $.draft.body
+      policy: standard
+
+  - id: verify_citations
+    skill: cite-sources@^1.0
+    with:
+      draft:    $.draft.internal_note
+      evidence: $.draft.citations
+
+  - id: human_gate
+    type: human
+    to: "$.triage.owning_team OR team:support-l1"
+    surface: jira_ticket_internal_comment
+    payload:
+      severity: $.triage.severity
+      category: $.triage.category
+      similar:  $.similar.similar
+      draft:    $.redact.redacted
+      internal_note: $.verify_citations.final
+    timeout: 4h
+    on_timeout: escalate_to_l2
+
+  - id: post_to_ticket
+    tool: jira.add_comment
+    when: "$.human_gate.approved == true"
+    with:
+      key:        $.inputs.ticket_key
+      body:       $.human_gate.approved_body
+      visibility: public
+
+  - id: notify_owning_team
+    tool: slack.post
+    when: "$.triage.severity in ['s1', 's2']"
+    with:
+      channel: "#support"
+      body: |
+        ${triage.severity} ticket ${inputs.ticket_key}
+        Category: ${triage.category}
+        Owning team: ${triage.owning_team}
+        Active incident: ${triage.active_incident.id OR 'none'}
+
+guardrails:
+  require_citations_on: [draft]
+  block_on_pii: true
+  must_run: [redact]
+  scope_check: [jira:read, jira:write, slack:write]
+
+eval:
+  online_sample_rate: 0.10
+  offline_suite: eval/workflows/support.triage/
+
+rollout:
+  initial_stage: shadow
+  promotion:
+    shadow_to_canary: { min_runs: 200, routing_accuracy_min: 0.85 }
+    canary_to_ga:     { min_days: 21,  csat_proxy_delta_min: 0.0 }

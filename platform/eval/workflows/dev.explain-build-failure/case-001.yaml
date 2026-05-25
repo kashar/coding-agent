@@ -1,0 +1,36 @@
+id: explain-build-failure-001
+description: |
+  NPE introduced in PAY-PR-880 caused PaymentControllerTest to fail.
+  Ground truth root cause: missing null check on Optional<Customer>.
+  Expected: top-1 hypothesis identifies the null reference; proposed fix
+  adds the null check + a regression test.
+
+fixture_set: replays/2025-04-12-payments-build-fail
+
+inputs:
+  build_id: payments-CI-3417
+  auto_propose_fix: true
+
+expected:
+  diagnose:
+    top1_kind: code
+    top1_confidence_min: 0.7
+    must_cite_any_of: [KI-PR-880, KI-COMMIT-9ab3]
+  propose_fix:
+    test_added: true
+    pr_target_branch_not: [main, master]
+    diff_lines_max: 100
+    rationale_mentions: [null, Optional]
+
+judges:
+  - kind: code_quality
+    rubric: |
+      Proposed patch (a) compiles in the project, (b) the added test
+      reproduces the failure when applied against the broken commit,
+      (c) no unrelated formatting changes.
+    min_score: 0.85
+  - kind: groundedness
+    rubric: |
+      Every hypothesis statement is supported by an evidence item from
+      retrieval. No invented KI ids.
+    min_score: 0.85

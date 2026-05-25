@@ -1,0 +1,37 @@
+id: epic-to-ac-001
+description: |
+  Epic ECOM-4521: "Allow customers to schedule deliveries for a future
+  date." Linked spec mentions order-service, scheduler-svc, customer
+  notifications, and a 30-day window. Ground truth ACs: 8 criteria
+  covering happy path, edge windows, timezone, cancellation.
+
+fixture_set: replays/2026-01-15-scheduled-delivery-epic
+
+inputs:
+  epic_key: ECOM-4521
+
+expected:
+  impacted:
+    systems_includes: [order-service, scheduler-svc, notifications]
+  ac:
+    criteria_count_min: 6
+    must_cover_themes: [happy_path, edge_window, timezone, cancellation]
+    must_cite_any_of: [KI-CONF-7891, KI-CONF-7892]
+  open_questions_min: 1   # spec doesn't address holidays — must flag
+
+judges:
+  - kind: factuality
+    rubric: |
+      No AC contradicts the spec. No AC invents behaviour not derivable
+      from the spec or graph.
+    min_score: 0.90
+  - kind: groundedness
+    rubric: |
+      Every criterion's `traces_to` references an existing KI from the
+      retrieval fixture.
+    min_score: 0.85
+  - kind: completeness
+    rubric: |
+      All four ground-truth themes (happy_path, edge_window, timezone,
+      cancellation) appear in `criteria`.
+    min_score: 1.0

@@ -1,0 +1,30 @@
+name: slack.post
+version: 1.0.0
+description: Post a message to a Slack channel.
+
+transport: { kind: mcp, server: slack, method: chat_postMessage }
+
+input_schema:
+  type: object
+  required: [channel, body]
+  properties:
+    channel: { type: string, pattern: "^#" }
+    body:    { type: string }
+    blocks:  { type: array, items: { type: object } }
+    thread_ts: { type: string }
+
+output_schema:
+  type: object
+  properties:
+    ts:    { type: string }
+    permalink: { type: string }
+
+scopes: [slack:write]
+guardrails:
+  allowed_channels: ["#incidents", "#support", "#qa-bot", "#dev-bot", "#ba-bot"]
+  forbid_external_channels: true
+  max_body_length: 4000
+pii:
+  scrub_request: true
+budget: { max_calls_per_minute_per_user: 30 }
+observability: { trace: true, audit: true }

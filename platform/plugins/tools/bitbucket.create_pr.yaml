@@ -1,0 +1,42 @@
+name: bitbucket.create_pr
+version: 1.0.0
+description: Open a draft PR with provided changes. Always draft, never auto-merge.
+
+transport: { kind: mcp, server: bitbucket, method: create_pr }
+
+input_schema:
+  type: object
+  required: [project, repo, branch, base, title, body, changes]
+  properties:
+    project: { type: string }
+    repo:    { type: string }
+    branch:  { type: string }
+    base:    { type: string, default: main }
+    title:   { type: string, maxLength: 70 }
+    body:    { type: string }
+    changes:
+      type: array
+      items:
+        type: object
+        required: [path, content]
+        properties:
+          path:    { type: string }
+          content: { type: string }
+          action:  { enum: [create, modify, delete], default: modify }
+    reviewers: { type: array, items: { type: string } }
+    labels:    { type: array, items: { type: string } }
+    draft:     { type: boolean, const: true }   # always draft
+
+output_schema:
+  type: object
+  properties:
+    pr_id: { type: string }
+    url:   { type: string }
+
+scopes: [bitbucket:write]
+guardrails:
+  forbid_base: [main, master, release/*]   # never target protected branches without human gate
+  max_diff_lines: 500
+  must_be_draft: true
+budget: { max_calls_per_minute_per_user: 10 }
+observability: { trace: true, audit: true }

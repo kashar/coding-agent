@@ -1,0 +1,69 @@
+name: ba.epic-to-ac
+version: 0.2.0
+description: From a Jira epic, draft impacted systems + acceptance criteria; post as a comment after BA review.
+owners: [team:ba-platform]
+
+triggers:
+  - type: jira.epic.labelled
+    filter: { label: "needs-ba-scoping" }
+  - type: manual
+
+inputs:
+  epic_key: { type: string, required: true }
+
+sla:    { p95_seconds: 150 }
+budget: { max_cost_usd: 0.40, max_tools: 25 }
+
+agent: agents/ba/epic-scoper@^1.0
+
+steps:
+  - id: impacted
+    skill: impacted-systems@^1.0
+    with: { epic_key: $.inputs.epic_key }
+
+  - id: ac
+    skill: acceptance-criteria-draft@^1.0
+    with:
+      epic_key: $.inputs.epic_key
+      impacted: $.impacted
+
+  - id: verify_citations
+    skill: cite-sources@^1.0
+    with:
+      draft:    $.ac.ac_markdown
+      evidence: "$.impacted.systems[*].evidence + $.ac.criteria[*].traces_to"
+
+  - id: human_gate
+    type: human
+    to: team:ba
+    surface: slack
+    payload:
+      epic_key: $.inputs.epic_key
+      impacted: $.impacted
+      ac:       $.verify_citations.final
+      open_questions: $.ac.open_questions
+    timeout: 48h
+    on_timeout: hold
+
+  - id: post
+    tool: jira.add_comment
+    when: "$.human_gate.approved == true"
+    with:
+      key:  $.inputs.epic_key
+      body: $.human_gate.approved_body
+      visibility: internal
+
+guardrails:
+  require_citations_on: [ac, verify_citations]
+  scope_check: [jira:read, jira:write]
+
+eval:
+  online_sample_rate: 0.20
+  offline_suite: eval/workflows/ba.epic-to-ac/
+
+rollout:
+  initial_stage: dark
+  promotion:
+    dark_to_shadow:  { min_runs: 20,  ba_accept_rate_min: 0.50 }
+    shadow_to_canary: { min_runs: 50, ba_accept_rate_min: 0.65 }
+    canary_to_ga:     { min_days: 30, ba_accept_rate_min: 0.75 }

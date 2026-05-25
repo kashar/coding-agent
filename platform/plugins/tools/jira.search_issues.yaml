@@ -1,0 +1,31 @@
+name: jira.search_issues
+version: 1.0.0
+description: JQL search returning compact issue summaries.
+
+transport: { kind: mcp, server: jira, method: search }
+
+input_schema:
+  type: object
+  required: [jql]
+  properties:
+    jql:   { type: string }
+    limit: { type: integer, default: 25, maximum: 100 }
+
+output_schema:
+  type: object
+  properties:
+    issues:
+      type: array
+      items:
+        type: object
+        properties:
+          key:       { type: string }
+          summary:   { type: string }
+          status:    { type: string }
+          type:      { type: string }
+          priority:  { type: string }
+          components: { type: array, items: { type: string } }
+
+scopes: [jira:read]
+budget: { max_calls_per_minute_per_user: 60 }
+observability: { trace: true, audit: true }

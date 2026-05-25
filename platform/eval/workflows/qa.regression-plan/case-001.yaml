@@ -1,0 +1,35 @@
+id: regression-plan-001
+description: |
+  PR touches OrderService.calculateTotal + adds a discount field. Ground
+  truth: must cover tax recalculation path, currency rounding, and the
+  recently-fixed null-discount bug from Q1.
+
+fixture_set: replays/2025-03-08-orderservice-discount-pr
+
+inputs:
+  project: ECOM
+  repo:    order-service
+  pr_id:   "742"
+
+expected:
+  impact:
+    impacted_services_includes: [order-service, billing-api]
+    related_past_incidents_count_min: 1
+  risk:
+    overall_risk_in: [medium, high]
+  plan:
+    test_cases_min: 4
+    must_mention: [tax, rounding, null discount]
+    must_cite_any_of: [KI-INC-1142, KI-PR-OS-689]
+
+judges:
+  - kind: groundedness
+    rubric: |
+      Every must-cover test case cites either a risk factor (with KI id)
+      or a prior bug (KI-INC-* or KI-PR-*).
+    min_score: 0.85
+  - kind: coverage
+    rubric: |
+      Plan covers all ground-truth scenarios (tax, rounding, null
+      discount). Each missing scenario subtracts 0.25.
+    min_score: 0.75

@@ -4,13 +4,37 @@
 /platform/plugins/sources/            @platform
 /platform/plugins/tools/              @platform @security
 /platform/skills/shared/              @platform
+/platform/team-template/              @platform
 
-# Team-owned
+# Team-owned: SRE
 /platform/skills/sre/                 @sre
 /platform/agents/sre/                 @sre
 /platform/workflows/sre/              @sre
+
+# Team-owned: Dev (platform-dev owns the build-doctor flow; service teams
+# inherit it via per-team overrides)
+/platform/skills/dev/                 @platform-dev
+/platform/agents/dev/                 @platform-dev
+/platform/workflows/dev/              @platform-dev
+
+# Team-owned: QA
+/platform/skills/qa/                  @qa-platform
+/platform/agents/qa/                  @qa-platform
+/platform/workflows/qa/               @qa-platform
+
+# Team-owned: BA
+/platform/skills/ba/                  @ba-platform
+/platform/agents/ba/                  @ba-platform
+/platform/workflows/ba/               @ba-platform
+
+# Team-owned: Support
+/platform/skills/support/             @support-platform
+/platform/agents/support/             @support-platform
+/platform/workflows/support/          @support-platform
+
+# Per-team config overrides
 /platform/teams/payments/             @payments
 
-# Evals follow skill ownership
+# Evals: owned by platform team but reviewed by the skill's owning team
 /platform/eval/skills/                @platform
 /platform/eval/workflows/             @platform

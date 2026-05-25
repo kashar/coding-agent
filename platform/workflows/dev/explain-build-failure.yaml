@@ -1,0 +1,71 @@
+name: dev.explain-build-failure
+version: 0.3.0
+description: Explain a Bamboo build failure and optionally propose a draft fix PR.
+owners: [team:platform-dev]
+
+triggers:
+  - type: bamboo.build.failed
+    filter:
+      branch_not_in: [main, master, release/*]   # don't auto-trigger on protected branches
+  - type: manual
+
+inputs:
+  build_id: { type: string, required: true }
+  auto_propose_fix: { type: boolean, default: false }
+
+sla:    { p95_seconds: 120 }
+budget: { max_cost_usd: 0.80, max_tools: 40 }
+
+agent: agents/dev/build-doctor@^1.0
+
+steps:
+  - id: diagnose
+    skill: diagnose-build-failure@^1.0
+    with: { build_id: $.inputs.build_id }
+
+  - id: branch
+    type: switch
+    when:
+      - condition: "$.inputs.auto_propose_fix == true AND $.diagnose.hypotheses[0].confidence >= 0.7 AND $.diagnose.hypotheses[0].kind in ['code', 'test']"
+        goto: propose_fix
+      - default: post_diagnosis_only
+
+  - id: propose_fix
+    skill: propose-fix-pr@^1.0
+    with:
+      build_id:   $.inputs.build_id
+      hypothesis: $.diagnose.hypotheses[0]
+
+  - id: human_gate
+    type: human
+    to: "$.diagnose.hypotheses[0].owner_team OR team:platform-dev"
+    surface: slack
+    payload:
+      diagnosis: $.diagnose.hypotheses
+      pr_url: $.propose_fix.pr_url
+      changes: $.propose_fix.changes
+    timeout: 30m
+    on_timeout: leave_pr_as_draft
+
+  - id: post_diagnosis_only
+    tool: slack.post
+    with:
+      channel: "#dev-bot"
+      body: |
+        Build `${inputs.build_id}` failed.
+        Top hypothesis: ${diagnose.hypotheses[0].statement}
+        Evidence: ${diagnose.hypotheses[0].evidence}
+
+guardrails:
+  require_citations_on: [diagnose, propose_fix]
+  scope_check: [bamboo:read, bitbucket:read, bitbucket:write, slack:write]
+
+eval:
+  online_sample_rate: 0.05
+  offline_suite: eval/workflows/dev.explain-build-failure/
+
+rollout:
+  initial_stage: shadow
+  promotion:
+    shadow_to_canary: { min_runs: 100, top1_root_cause_match_min: 0.40 }
+    canary_to_ga:     { min_days: 21, cost_p95_max_usd: 0.60 }

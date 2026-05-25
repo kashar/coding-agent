@@ -1,0 +1,79 @@
+name: qa.regression-plan
+version: 0.3.0
+description: Produce a risk-based regression test plan for a PR.
+owners: [team:qa-platform]
+
+triggers:
+  - type: bitbucket.pr.opened
+  - type: bitbucket.pr.updated
+    filter: { diff_lines_max: 5000 }
+  - type: manual
+
+inputs:
+  project: { type: string, required: true }
+  repo:    { type: string, required: true }
+  pr_id:   { type: string, required: true }
+
+sla:    { p95_seconds: 60 }
+budget: { max_cost_usd: 0.30, max_tools: 25 }
+
+agent: agents/qa/regression-analyst@^1.0
+
+steps:
+  - id: impact
+    skill: impact-analysis@^1.0
+    with:
+      project: $.inputs.project
+      repo:    $.inputs.repo
+      pr_id:   $.inputs.pr_id
+
+  - id: risk
+    skill: risk-score@^1.0
+    with:
+      impact: $.impact
+      pr_id:  $.inputs.pr_id
+
+  - id: plan
+    skill: test-plan-draft@^1.0
+    with:
+      pr_id:  $.inputs.pr_id
+      impact: $.impact
+      risk:   $.risk
+
+  - id: verify_citations
+    skill: cite-sources@^1.0
+    with:
+      draft:    $.plan.markdown
+      evidence: $.plan.citations
+
+  - id: human_gate
+    type: human
+    to: team:qa
+    surface: bitbucket_pr_comment
+    payload:
+      pr_id: $.inputs.pr_id
+      body:  $.verify_citations.final
+    timeout: 24h
+    on_timeout: leave_as_draft_comment
+
+  - id: post
+    tool: jira.add_comment
+    when: "$.impact.related_past_incidents.length > 0"
+    with:
+      key:  "$.impact.related_past_incidents[0].linked_ticket"
+      body: "Regression risk: ${risk.overall_risk}. Plan: ${human_gate.approved_body}"
+
+guardrails:
+  require_citations_on: [plan, verify_citations]
+  block_on_pii: true
+  scope_check: [bitbucket:read, jira:write]
+
+eval:
+  online_sample_rate: 0.10
+  offline_suite: eval/workflows/qa.regression-plan/
+
+rollout:
+  initial_stage: shadow
+  promotion:
+    shadow_to_canary: { min_runs: 100, impacted_recall_min: 0.80 }
+    canary_to_ga:     { min_days: 14 }

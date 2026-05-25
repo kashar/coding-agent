@@ -1,0 +1,40 @@
+name: bamboo.get_build
+version: 1.0.0
+description: Fetch a Bamboo build with logs (failure window only) and metadata.
+
+transport: { kind: mcp, server: bamboo, method: get_build }
+
+input_schema:
+  type: object
+  required: [build_id]
+  properties:
+    build_id:   { type: string }
+    log_window: { type: integer, default: 100, description: "Lines before/after failure marker" }
+
+output_schema:
+  type: object
+  properties:
+    build:
+      type: object
+      properties:
+        id:         { type: string }
+        plan:       { type: string }
+        status:     { enum: [succeeded, failed, in_progress] }
+        started:    { type: string, format: date-time }
+        finished:   { type: string, format: date-time }
+        commit_sha: { type: string }
+        branch:     { type: string }
+        pr_id:      { type: string }
+    failures:
+      type: array
+      items:
+        type: object
+        properties:
+          stage:       { type: string }
+          test:        { type: string }
+          error:       { type: string }
+          log_excerpt: { type: string }
+
+scopes: [bamboo:read]
+budget: { max_calls_per_minute_per_user: 60 }
+observability: { trace: true, audit: true }

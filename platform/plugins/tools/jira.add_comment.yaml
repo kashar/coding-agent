@@ -1,0 +1,26 @@
+name: jira.add_comment
+version: 1.0.0
+description: Add a comment to a Jira issue.
+
+transport: { kind: mcp, server: jira, method: add_comment }
+
+input_schema:
+  type: object
+  required: [key, body]
+  properties:
+    key:        { type: string, pattern: "^[A-Z]+-[0-9]+$" }
+    body:       { type: string }
+    visibility: { enum: [public, internal], default: public }
+
+output_schema:
+  type: object
+  properties:
+    id:  { type: string }
+    url: { type: string }
+
+scopes: [jira:write]
+guardrails:
+  require_human_gate: true        # never auto-comment without human approval
+  max_body_length: 8000
+budget: { max_calls_per_minute_per_user: 10 }
+observability: { trace: true, audit: true }
