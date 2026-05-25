@@ -1,0 +1,49 @@
+id: 2025-05-20-payments-p99
+description: |
+  Anonymised replay of a real p99 regression on payments-api caused by
+  PR-812 (retry-policy tightening) deployed as v2.4.1.
+
+incident:
+  ts_fire:    "2025-05-20T14:32:11Z"
+  ts_revert:  "2025-05-20T14:51:08Z"
+  service:    payments-api
+  symptom:    "p99 latency > 2s"
+  severity:   critical
+
+inputs:
+  alert_id: alert-payments-p99-2025-05-20
+
+ground_truth:
+  cause:
+    kind: deploy
+    deploy_id: deploy-pa-2.4.1
+    pr_id: PAY-PR-812
+    commit_sha: a1b2c3d
+    confidence_min: 0.7
+  contributing_factors:
+    - "retry policy attempts 3 → 8"
+    - "no jitter on retry"
+  blast_radius:
+    services_affected: [payments-api]
+    customer_impact_pct: 12
+  owner_team: payments
+
+expected_workflow_outputs:
+  brief:
+    must_contain: ["payments-api", "v2.4.1", "[KI-PR-812]"]
+    must_not_contain_speculation: true
+    citation_count_min: 3
+  correlate:
+    top1_deploy_id: deploy-pa-2.4.1
+    top1_confidence_min: 0.7
+    must_cite: [KI-PR-812]
+    must_not_cite: [KI-PR-809]
+
+fixture_index:
+  graph_nodes:   graph/nodes.yaml
+  graph_edges:   graph/edges.yaml
+  retrieval:     retrieval/items.yaml
+  tool_responses:
+    grafana.get_alert:    tools/grafana.get_alert.json
+    bamboo.list_deploys:  tools/bamboo.list_deploys.json
+    trace:                tools/trace.json

@@ -1,0 +1,92 @@
+items:
+  - id: KI-PR-812
+    source: bitbucket
+    uri: "bitbucket://PAY/payments-api/pull/812"
+    type: pr
+    title: "PAY-PR-812: retry policy: 3→8 attempts, no jitter"
+    body: |
+      Change retry policy to attempt up to 8 times (was 3). Remove
+      jittered backoff since it was adding 50–200ms tail. Tested
+      locally with chaos toxiproxy.
+
+      Files: src/main/java/com/example/payments/retry/RetryPolicy.java
+      Diff: +12 -3
+    structured:
+      author: alice@example.com
+      merged_at: "2025-05-20T14:15:00Z"
+      reviewers: ["bob@example.com"]
+      labels: ["payments", "resilience"]
+    entities: [svc-payments-api, commit-a1b2c3d]
+    owners: [team-payments]
+    acl: { read: [team-payments, team-platform-sre] }
+    embedding_stub: "[0.12, -0.04, 0.31, ...]"  # actual vectors live in pgvector
+
+  - id: KI-COMMIT-a1b2c3d
+    source: bitbucket
+    uri: "bitbucket://PAY/payments-api/commit/a1b2c3d"
+    type: commit
+    title: "tighten retry policy: 3→8 attempts (PAY-PR-812)"
+    body: |
+      diff --git a/src/.../RetryPolicy.java b/src/.../RetryPolicy.java
+      -  private static final int MAX_ATTEMPTS = 3;
+      +  private static final int MAX_ATTEMPTS = 8;
+      -  Backoff backoff = Backoff.jittered(50ms, 200ms);
+      +  Backoff backoff = Backoff.fixed(50ms);
+    structured:
+      sha: a1b2c3d
+      author: alice@example.com
+      ts: "2025-05-20T13:45:00Z"
+    entities: [svc-payments-api]
+    acl: { read: [team-payments, team-platform-sre] }
+
+  - id: KI-PR-809
+    source: bitbucket
+    uri: "bitbucket://PAY/payments-api/pull/809"
+    type: pr
+    title: "PAY-PR-809: bump dep versions"
+    body: |
+      Routine dependency bumps. No behavioural changes.
+      Files: pom.xml
+    structured:
+      author: bob@example.com
+      merged_at: "2025-05-19T08:55:00Z"
+    acl: { read: [team-payments] }
+
+  - id: KI-ALERT-payments-p99-2025-05-20
+    source: grafana
+    uri: "grafana://alerts/alert-payments-p99-2025-05-20"
+    type: alert
+    title: "payments-api p99 > 2s"
+    body: |
+      Severity: critical. Service: payments-api. Query:
+      histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{
+        service="payments-api"}[5m]))
+      Fired at 2025-05-20T14:32:11Z. Last 30d: 0 prior fires.
+    structured:
+      severity: critical
+      service: payments-api
+      fired_at: "2025-05-20T14:32:11Z"
+
+  - id: KI-RUNBOOK-payments-p99
+    source: confluence
+    uri: "confluence://OPS/payments-runbook#p99"
+    type: runbook
+    title: "Runbook: payments-api p99 spike"
+    body: |
+      ## Triage
+      1. Check recent deploys via Bamboo.
+      2. Check downstream latency on auth-svc and redis-cache.
+      3. If a deploy in the last 30m correlates: candidate for revert.
+      4. Pageable owner: team-payments primary on-call.
+    acl: { read: [team-payments, team-platform-sre] }
+
+  - id: KI-POSTMORTEM-2024-Q4-retry
+    source: confluence
+    uri: "confluence://OPS/postmortems/2024-Q4-retry-storm"
+    type: doc
+    title: "Postmortem: 2024-Q4 retry storm on payments-api"
+    body: |
+      Root cause: aggressive retries (5 attempts) under partial dep
+      outage created a thundering herd. Fix: introduce jittered backoff.
+      Lesson: any change to MAX_ATTEMPTS upward requires load test sign-off.
+    acl: { read: [team-payments, team-platform-sre] }

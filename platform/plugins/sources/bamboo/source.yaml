@@ -1,0 +1,63 @@
+name: bamboo
+version: 1.0.0
+kind: hybrid
+description: Ingests build and deploy events with failure-window log excerpts.
+
+transport:
+  primary:  { kind: mcp, server: bamboo }
+  fallback: { kind: rest, base_url: ${BAMBOO_BASE_URL} }
+
+watermark:
+  store: postgres
+  granularity: per_plan
+
+incremental:
+  webhook:
+    events: [build.finished, deploy.finished, deploy.failed]
+    endpoint: /webhooks/bamboo
+  poll:
+    cron: "*/5 * * * *"
+
+extract:
+  plans:
+    include: ["*"]
+    exclude: ["SANDBOX-*"]
+  on_failure:
+    capture_log_window: 100      # lines around failure marker
+    capture_stages: [test, integration, deploy]
+  link_to:
+    - commit_sha
+    - pr_id
+    - service
+
+chunking:
+  strategy: per_failure_event
+  fields: [stage, test_name, error, log_excerpt, commit_sha, pr_id]
+  max_tokens: 700
+
+enrichment:
+  entities:
+    - kind: service
+    - kind: commit
+    - kind: pr
+    - kind: error_signature   # normalised error fingerprint
+  graph_edges_emitted:
+    - { from: build,  edge: BUILDS,  to: commit }
+    - { from: deploy, edge: DEPLOYS, to: service }
+    - { from: deploy, edge: AT_ENV,  to: env }
+
+embedding:
+  model: bge-large-en-v1.5
+  dimensions: 1024
+  cache_by: chunk_hash
+
+acl:
+  source: bamboo_plan_permissions
+  propagate_to_retrieval: true
+
+pii:
+  scrub_at_ingest: true
+  detectors: [api_key, jwt_token, password_literal, internal_url]
+
+budget:
+  monthly_tokens_for_summary: 5_000_000

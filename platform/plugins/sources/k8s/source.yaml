@@ -1,0 +1,68 @@
+name: k8s
+version: 1.0.0
+kind: pull
+description: |
+  Ingests Kubernetes manifests (Deployment/StatefulSet/Service/Ingress)
+  and events grouped per object per hour. Used to ground deploy
+  correlation and incident analysis.
+
+transport:
+  kind: mcp
+  server: kubernetes
+
+watermark:
+  store: postgres
+  granularity: per_cluster_per_namespace
+
+incremental:
+  watch:
+    resources: [Deployment, StatefulSet, DaemonSet, Service, Ingress, ConfigMap, HorizontalPodAutoscaler]
+    on_change: enqueue_reindex
+  events:
+    poll_cron: "*/5 * * * *"
+    levels: [Warning]            # informational events are noise
+    aggregate_by: object_uid_hourly
+
+extract:
+  clusters:
+    include: ["prod-*", "staging-*"]
+  namespaces:
+    exclude: ["kube-system", "kube-public", "tekton-pipelines"]
+  redact_fields:
+    - "spec.template.spec.containers[*].env[?(@.valueFrom.secretKeyRef)]"
+    - "metadata.annotations.kubectl.kubernetes.io/last-applied-configuration"
+
+chunking:
+  manifests:
+    strategy: per_object
+    keep_whole: [spec.template.spec.containers, spec.template.spec.volumes]
+    max_tokens: 800
+  events:
+    strategy: per_object_hourly_bucket
+    max_tokens: 500
+
+enrichment:
+  entities:
+    - kind: service              # from labels.app or annotation
+    - kind: env                  # from cluster + namespace
+    - kind: image                # container image refs
+  graph_edges_emitted:
+    - { from: service, edge: RUNS_IN, to: env }
+    - { from: deploy, edge: ROLLS_OUT, to: service }
+
+embedding:
+  model: bge-large-en-v1.5
+  dimensions: 1024
+  cache_by: object_hash
+
+acl:
+  source: rbac_view_permissions
+  propagate_to_retrieval: true
+
+pii:
+  scrub_at_ingest: true
+  detectors: [api_key, jwt_token, base64_secret_like]
+  secret_quarantine: true
+
+budget:
+  monthly_tokens_for_summary: 0

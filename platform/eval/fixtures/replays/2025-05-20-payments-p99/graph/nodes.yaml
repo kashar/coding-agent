@@ -1,0 +1,90 @@
+nodes:
+  - id: svc-payments-api
+    kind: Service
+    name: payments-api
+    team: payments
+    env: prod
+
+  - id: svc-redis-cache
+    kind: Service
+    name: redis-cache
+    team: platform-infra
+    env: prod
+
+  - id: svc-auth-svc
+    kind: Service
+    name: auth-svc
+    team: identity
+    env: prod
+
+  - id: svc-checkout-api
+    kind: Service
+    name: checkout-api
+    team: ecom
+    env: prod
+
+  - id: deploy-pa-2.4.1
+    kind: Deploy
+    service: payments-api
+    version: 2.4.1
+    ts: "2025-05-20T14:28:03Z"
+    commit_sha: a1b2c3d
+    status: succeeded
+    pr_ids: [PAY-PR-812]
+
+  - id: deploy-pa-2.4.0
+    kind: Deploy
+    service: payments-api
+    version: 2.4.0
+    ts: "2025-05-19T09:11:00Z"
+    commit_sha: 9f8e7d6
+    status: succeeded
+    pr_ids: [PAY-PR-809]
+
+  - id: deploy-pa-2.4.2-revert
+    kind: Deploy
+    service: payments-api
+    version: 2.4.2
+    ts: "2025-05-20T14:51:08Z"
+    commit_sha: r3v3r7d
+    status: succeeded
+    pr_ids: [PAY-PR-815]
+
+  - id: commit-a1b2c3d
+    kind: Commit
+    sha: a1b2c3d
+    author: alice@example.com
+    ts: "2025-05-20T13:45:00Z"
+    message: "tighten retry policy: 3→8 attempts (PAY-PR-812)"
+
+  - id: pr-PAY-812
+    kind: PR
+    pr_id: PAY-PR-812
+    title: "retry policy: 3→8 attempts, no jitter"
+    state: merged
+    base: main
+    head: feature/retry-policy
+    author: alice@example.com
+    merged_at: "2025-05-20T14:15:00Z"
+
+  - id: pr-PAY-809
+    kind: PR
+    pr_id: PAY-PR-809
+    title: "bump dep versions"
+    state: merged
+    base: main
+    merged_at: "2025-05-19T08:55:00Z"
+
+  - id: alert-payments-p99-2025-05-20
+    kind: Alert
+    alert_id: alert-payments-p99-2025-05-20
+    title: "payments-api p99 > 2s"
+    severity: critical
+    service: payments-api
+    fired_at: "2025-05-20T14:32:11Z"
+    resolved_at: "2025-05-20T14:54:30Z"
+
+  - id: team-payments
+    kind: Team
+    slug: payments
+    members: ["alice@example.com", "bob@example.com"]

@@ -1,0 +1,66 @@
+name: elk
+version: 1.0.0
+kind: pull
+description: |
+  Ingests log events aggregated by incident windows (alert ±15m) and by
+  error-signature buckets. Raw log firehose is NOT indexed — too costly,
+  too low signal-to-noise.
+
+transport:
+  kind: mcp
+  server: elk
+
+watermark:
+  store: postgres
+  granularity: per_service_per_env
+
+incremental:
+  triggered_by:
+    - grafana.alert.firing    # ingest log window around any new alert
+  scheduled_summaries:
+    cron: "0 * * * *"          # hourly per-service error-signature aggregation
+
+extract:
+  services:
+    discovery: service_catalog
+  envs: [prod, staging]
+  on_alert:
+    window: PT30M              # 15m before + 15m after fire time
+    aggregate_by: error_signature
+    sample_per_bucket: 5
+  hourly:
+    levels: [ERROR, FATAL]
+    aggregate_by: error_signature
+
+chunking:
+  strategy: per_bucket
+  fields: [error_signature, count, first_seen, last_seen, samples, service, env]
+  max_tokens: 600
+
+enrichment:
+  entities:
+    - kind: service
+    - kind: env
+    - kind: error_signature
+    - kind: customer_id        # quarantined; never persisted in KB body
+  graph_edges_emitted:
+    - { from: service, edge: EMITS,   to: log_event }
+    - { from: alert,   edge: WITH_LOGS, to: log_event }
+
+embedding:
+  model: bge-large-en-v1.5
+  dimensions: 1024
+  cache_by: signature_hash
+
+acl:
+  source: elk_index_permissions
+  propagate_to_retrieval: true
+
+pii:
+  scrub_at_ingest: true
+  detectors: [email, phone, pan, ssn, ip_address, user_id, session_id, jwt_token]
+  hard_drop_fields: [pan, ssn]
+
+budget:
+  monthly_tokens_for_summary: 0    # samples only, no LLM summaries on logs
+  monthly_buckets_cap: 500_000

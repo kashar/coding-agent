@@ -1,0 +1,76 @@
+name: bitbucket
+version: 1.0.0
+kind: hybrid
+description: Ingests PRs, commits, and review threads from Bitbucket/Stash.
+
+transport:
+  primary:  { kind: mcp, server: bitbucket }
+  fallback: { kind: rest, base_url: ${BITBUCKET_BASE_URL} }
+
+watermark:
+  store: postgres
+  granularity: per_repo
+
+incremental:
+  webhook:
+    events:
+      - pr:opened
+      - pr:modified
+      - pr:merged
+      - pr:declined
+      - pr:comment:added
+      - repo:refs_changed
+    endpoint: /webhooks/bitbucket
+  poll:
+    cron: "*/15 * * * *"
+    query: "since: watermark"
+
+extract:
+  projects:
+    include: ["*"]
+    exclude: ["ARCHIVE", "SANDBOX"]
+  pr:
+    include_diff: true
+    include_reviews: true
+    include_comments: true
+    max_diff_lines: 5000   # huge PRs → metadata only, no diff chunks
+  commit:
+    include_diff_summary: true
+    parse_message_for: [jira_keys, revert_refs]
+
+chunking:
+  pr:
+    strategy: per_hunk_plus_description
+    keep_whole: [description, top_level_review_comments]
+    max_tokens: 800
+  commit:
+    strategy: message_plus_file_summaries
+    max_tokens: 600
+
+enrichment:
+  entities:
+    - kind: jira_key
+    - kind: service       # via CODEOWNERS / service catalog mapping
+    - kind: module
+    - kind: person
+  graph_edges_emitted:
+    - { from: pr,     edge: MENTIONS, to: ticket }
+    - { from: pr,     edge: AUTHORED, to: person }
+    - { from: commit, edge: FIXES,    to: ticket }
+    - { from: pr,     edge: MERGES,   to: commit }
+
+embedding:
+  model: bge-large-en-v1.5
+  dimensions: 1024
+  cache_by: chunk_hash
+
+acl:
+  source: bitbucket_repo_permissions
+  propagate_to_retrieval: true
+
+pii:
+  scrub_at_ingest: true
+  detectors: [email]
+
+budget:
+  monthly_tokens_for_summary: 40_000_000

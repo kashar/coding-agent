@@ -1,0 +1,29 @@
+{
+  "alert": {
+    "id": "alert-payments-p99-2025-05-20",
+    "title": "payments-api p99 > 2s",
+    "severity": "critical",
+    "service": "payments-api",
+    "dashboard_url": "https://grafana.internal/d/payments/payments-api-overview",
+    "query": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{service=\"payments-api\"}[5m]))"
+  },
+  "fires": [
+    {
+      "ts": "2025-05-20T14:32:11Z",
+      "state": "firing",
+      "labels": {
+        "service": "payments-api",
+        "env": "prod",
+        "severity": "critical"
+      }
+    },
+    {
+      "ts": "2025-05-20T14:54:30Z",
+      "state": "resolved",
+      "labels": {
+        "service": "payments-api",
+        "env": "prod"
+      }
+    }
+  ]
+}

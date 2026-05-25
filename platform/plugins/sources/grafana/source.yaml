@@ -1,0 +1,66 @@
+name: grafana
+version: 1.0.0
+kind: pull
+description: |
+  Ingests dashboard metadata, alert rule definitions, and 30-day rolling
+  alert-fire history. Dashboards are linked to services via panel labels
+  and dashboard tags.
+
+transport:
+  kind: mcp
+  server: grafana
+
+watermark:
+  store: postgres
+  granularity: per_org
+
+incremental:
+  webhook:
+    events: [alert.firing, alert.resolved, dashboard.created, dashboard.updated]
+    endpoint: /webhooks/grafana
+  poll:
+    cron: "*/15 * * * *"
+
+extract:
+  orgs: ["*"]
+  dashboards:
+    include_tags: ["prod", "service-*"]
+    exclude_tags: ["scratch", "personal"]
+  alert_history:
+    rolling_window: P30D
+
+chunking:
+  dashboards:
+    strategy: per_panel
+    fields: [title, description, query, datasource, links_to_runbook]
+    max_tokens: 500
+  alerts:
+    strategy: rule_plus_history_summary
+    fields: [name, severity, query, last_30d_fires, mean_duration]
+    max_tokens: 600
+
+enrichment:
+  entities:
+    - kind: service             # from dashboard tag / panel label
+    - kind: alert
+    - kind: runbook_url
+  graph_edges_emitted:
+    - { from: dashboard, edge: WATCHES, to: service }
+    - { from: alert,     edge: EMITS,   to: service }
+    - { from: alert,     edge: LINKS_TO, to: runbook }
+
+embedding:
+  model: bge-large-en-v1.5
+  dimensions: 1024
+  cache_by: chunk_hash
+
+acl:
+  source: grafana_folder_permissions
+  propagate_to_retrieval: true
+
+pii:
+  scrub_at_ingest: true
+  detectors: []                # dashboard metadata generally PII-free
+
+budget:
+  monthly_tokens_for_summary: 2_000_000

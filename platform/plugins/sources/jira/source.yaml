@@ -1,0 +1,76 @@
+name: jira
+version: 1.0.0
+kind: hybrid
+description: Ingests Jira issues, comments, transitions, and links as event-timeline KnowledgeItems.
+
+transport:
+  primary:  { kind: mcp, server: jira }
+  fallback: { kind: rest, base_url: ${JIRA_BASE_URL} }
+
+watermark:
+  store: postgres
+  granularity: per_project
+
+incremental:
+  webhook:
+    events: [issue.created, issue.updated, comment.created, comment.updated, issue.deleted]
+    endpoint: /webhooks/jira
+  poll:
+    cron: "*/10 * * * *"
+    jql: "updated >= -15m"
+
+extract:
+  projects:
+    include: ["ECOM", "PAY", "SUPP", "PLAT", "SRE"]
+    exclude: ["HR", "FIN"]
+  fields:
+    - summary
+    - description
+    - status
+    - priority
+    - components
+    - labels
+    - assignee
+    - reporter
+    - issuelinks
+    - subtasks
+    - timeline
+  custom_fields_map:
+    customfield_10001: epic_link
+    customfield_10042: service
+
+chunking:
+  strategy: event_timeline      # one chunk per significant event + a summary chunk
+  significant_events: [creation, transition, comment, link, attachment]
+  summary_chunk: true
+  max_tokens: 500
+
+enrichment:
+  entities:
+    - kind: service
+    - kind: repo
+    - kind: jira_key       # for back-references
+    - kind: pr_url
+    - kind: person
+  link_to_graph: true
+  graph_edges_emitted:
+    - { from: ticket, edge: MENTIONS, to: service }
+    - { from: ticket, edge: MENTIONS, to: repo }
+    - { from: commit, edge: FIXES,    to: ticket }   # back-edge from commit-message parse
+
+embedding:
+  model: bge-large-en-v1.5
+  dimensions: 1024
+  cache_by: chunk_hash
+
+acl:
+  source: jira_project_permissions
+  propagate_to_retrieval: true
+  default_visibility: internal
+
+pii:
+  scrub_at_ingest: true
+  detectors: [email, phone, pan, account_id]
+
+budget:
+  monthly_tokens_for_summary: 30_000_000

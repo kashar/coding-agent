@@ -1,0 +1,53 @@
+{
+  "timeline": [
+    {
+      "ts": "2025-05-20T13:45:00Z",
+      "kind": "commit",
+      "node_id": "commit-a1b2c3d",
+      "summary": "tighten retry policy: 3→8 attempts (PAY-PR-812)",
+      "citations": ["KI-COMMIT-a1b2c3d"]
+    },
+    {
+      "ts": "2025-05-20T14:15:00Z",
+      "kind": "pr_merged",
+      "node_id": "pr-PAY-812",
+      "summary": "PAY-PR-812 merged to main",
+      "citations": ["KI-PR-812"]
+    },
+    {
+      "ts": "2025-05-20T14:28:03Z",
+      "kind": "deploy",
+      "node_id": "deploy-pa-2.4.1",
+      "summary": "payments-api v2.4.1 deployed to prod",
+      "citations": ["KI-PR-812"]
+    },
+    {
+      "ts": "2025-05-20T14:32:11Z",
+      "kind": "alert",
+      "node_id": "alert-payments-p99-2025-05-20",
+      "summary": "payments-api p99 > 2s firing",
+      "citations": ["KI-ALERT-payments-p99-2025-05-20"]
+    },
+    {
+      "ts": "2025-05-20T14:51:08Z",
+      "kind": "deploy",
+      "node_id": "deploy-pa-2.4.2-revert",
+      "summary": "payments-api v2.4.2 (revert of 2.4.1) deployed to prod",
+      "citations": []
+    }
+  ],
+  "inferred_causes": [
+    {
+      "node_id": "deploy-pa-2.4.1",
+      "confidence": 0.82,
+      "evidence": ["KI-PR-812", "KI-COMMIT-a1b2c3d", "KI-POSTMORTEM-2024-Q4-retry"]
+    }
+  ],
+  "citations": [
+    "KI-PR-812",
+    "KI-COMMIT-a1b2c3d",
+    "KI-ALERT-payments-p99-2025-05-20",
+    "KI-POSTMORTEM-2024-Q4-retry",
+    "KI-RUNBOOK-payments-p99"
+  ]
+}

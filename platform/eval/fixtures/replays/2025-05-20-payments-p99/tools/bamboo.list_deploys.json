@@ -1,0 +1,20 @@
+{
+  "deploys": [
+    {
+      "id": "deploy-pa-2.4.1",
+      "ts": "2025-05-20T14:28:03Z",
+      "version": "2.4.1",
+      "commit_sha": "a1b2c3d",
+      "pr_ids": ["PAY-PR-812"],
+      "status": "succeeded"
+    },
+    {
+      "id": "deploy-pa-2.4.0",
+      "ts": "2025-05-19T09:11:00Z",
+      "version": "2.4.0",
+      "commit_sha": "9f8e7d6",
+      "pr_ids": ["PAY-PR-809"],
+      "status": "succeeded"
+    }
+  ]
+}

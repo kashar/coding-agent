@@ -1,0 +1,25 @@
+edges:
+  # Ownership
+  - { from: team-payments,        edge: OWNS,        to: svc-payments-api }
+
+  # Dependency graph (used by correlator for blast-radius scoring)
+  - { from: svc-payments-api,     edge: DEPENDS_ON,  to: svc-redis-cache }
+  - { from: svc-payments-api,     edge: DEPENDS_ON,  to: svc-auth-svc }
+  - { from: svc-checkout-api,     edge: DEPENDS_ON,  to: svc-payments-api }
+
+  # Deploy ↔ service
+  - { from: deploy-pa-2.4.1,      edge: DEPLOYS,     to: svc-payments-api }
+  - { from: deploy-pa-2.4.0,      edge: DEPLOYS,     to: svc-payments-api }
+  - { from: deploy-pa-2.4.2-revert, edge: DEPLOYS,   to: svc-payments-api }
+
+  # Commit ↔ deploy
+  - { from: deploy-pa-2.4.1,      edge: BUILDS_FROM, to: commit-a1b2c3d }
+
+  # PR ↔ commit
+  - { from: pr-PAY-812,           edge: MERGES,      to: commit-a1b2c3d }
+
+  # Alert ↔ service
+  - { from: svc-payments-api,     edge: EMITS,       to: alert-payments-p99-2025-05-20 }
+
+  # Inferred (what the resolver should produce; included here as expected output)
+  - { from: alert-payments-p99-2025-05-20, edge: CAUSED_BY, to: deploy-pa-2.4.1, confidence: 0.82, inferred: true }

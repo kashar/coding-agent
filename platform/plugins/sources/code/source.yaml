@@ -1,0 +1,93 @@
+name: code
+version: 1.0.0
+kind: pull
+description: |
+  AST-aware ingestion of source code from all registered repos. One chunk
+  per symbol (function/class/method) + a file-level chunk. Carries
+  imports, doc-comments, owners (CODEOWNERS), and language metadata.
+
+transport:
+  kind: internal
+  service: code-indexer
+  notes: |
+    Indexer clones each repo into a shared volume (shallow + per-branch)
+    and runs language-specific tree-sitter parsers. No MCP dependency.
+
+watermark:
+  store: postgres
+  granularity: per_repo_per_branch
+
+incremental:
+  on:
+    - bitbucket:push          # subscribe to source event
+    - bitbucket:pr:merged
+  full_reindex:
+    cron: "0 3 * * 0"          # weekly Sunday 03:00, catches missed events
+
+extract:
+  repos:
+    discovery: service_catalog  # all services declared in catalog
+    include_default_branch: true
+    include_branches_matching: ["release/*"]
+  languages:
+    - java        # tree-sitter-java
+    - kotlin
+    - typescript
+    - python
+    - go
+    - yaml        # for K8s manifests, OpenAPI, etc.
+    - sql
+  exclude_paths:
+    - "**/node_modules/**"
+    - "**/target/**"
+    - "**/build/**"
+    - "**/.gradle/**"
+    - "**/vendor/**"
+    - "**/*.min.js"
+    - "**/*.lock"
+
+chunking:
+  strategy: ast_symbol
+  granularity: function_or_class
+  file_level_chunk: true       # one extra chunk per file for context
+  include:
+    - imports
+    - doc_comments
+    - decorators_or_annotations
+  max_tokens: 1000
+  oversize_fallback: split_by_blank_lines
+
+enrichment:
+  entities:
+    - kind: service           # mapped from path → service catalog
+    - kind: module
+    - kind: owning_team       # via CODEOWNERS parse
+  graph_edges_emitted:
+    - { from: repo,    edge: CONTAINS, to: module }
+    - { from: module,  edge: CONTAINS, to: service }
+    - { from: team,    edge: OWNS,     to: service }
+  symbol_index:
+    enabled: true
+    store: opensearch
+    notes: "for go-to-definition style queries from skills"
+
+embedding:
+  model: bge-large-en-v1.5
+  dimensions: 1024
+  cache_by: symbol_hash       # function body hash, not file hash
+  notes: |
+    bge-large is acceptable for code retrieval at our scale. Revisit
+    per ADR-006 if eval recall on type=code drops below 0.7.
+
+acl:
+  source: bitbucket_repo_permissions
+  propagate_to_retrieval: true
+
+pii:
+  scrub_at_ingest: true
+  detectors: [api_key, jwt_token, password_literal]
+  secret_quarantine: true     # any detected secret → quarantine bucket, page security
+
+budget:
+  monthly_tokens_for_summary: 0   # no per-symbol summaries; cost is embedding only
+  initial_backfill_cap_hours: 48
