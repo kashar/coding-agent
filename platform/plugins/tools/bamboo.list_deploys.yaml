@@ -1,0 +1,37 @@
+name: bamboo.list_deploys
+version: 1.0.0
+description: List deploys for a service within a time window.
+
+transport: { kind: mcp, server: bamboo, method: list_deploys }
+
+input_schema:
+  type: object
+  required: [service]
+  properties:
+    service: { type: string }
+    env:     { enum: [dev, staging, prod], default: prod }
+    from:    { type: string, format: date-time }
+    to:      { type: string, format: date-time }
+
+output_schema:
+  type: object
+  properties:
+    deploys:
+      type: array
+      items:
+        type: object
+        properties:
+          id:        { type: string }
+          ts:        { type: string, format: date-time }
+          version:   { type: string }
+          commit_sha: { type: string }
+          pr_ids:    { type: array, items: { type: string } }
+          status:    { enum: [succeeded, failed, rolled_back] }
+
+scopes: [bamboo:read]
+
+pii: { scrub_fields_in_output: [] }
+
+budget: { max_calls_per_minute_per_user: 60 }
+
+observability: { trace: true, audit: true }

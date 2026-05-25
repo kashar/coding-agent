@@ -1,0 +1,54 @@
+id: correlate-001
+description: |
+  Classic deploy-induced regression. Payment-api latency p99 spiked 4
+  minutes after deploy v2.4.1 which changed the retry policy. Known
+  ground truth: the v2.4.1 deploy caused the alert.
+
+fixtures:
+  alert:
+    id: alert-payments-p99-2025-05-20
+    service: payments-api
+    severity: critical
+    fired_at: "2025-05-20T14:32:11Z"
+    title: "payments-api p99 > 2s"
+    query: "histogram_quantile(0.99, ...)"
+  deploys:
+    - id: deploy-pa-2.4.1
+      service: payments-api
+      version: 2.4.1
+      ts: "2025-05-20T14:28:03Z"
+      commit_sha: a1b2c3d
+      pr_ids: ["PAY-PR-812"]
+    - id: deploy-pa-2.4.0
+      service: payments-api
+      version: 2.4.0
+      ts: "2025-05-19T09:11:00Z"
+      commit_sha: 9f8e7d6
+      pr_ids: ["PAY-PR-809"]
+  graph_edges:
+    - payments-api --DEPENDS_ON--> redis-cache
+    - payments-api --DEPENDS_ON--> auth-svc
+  retrieval_docs:
+    - id: KI-PR-812
+      title: "PAY-PR-812: retry policy: 3→8 attempts, no jitter"
+      type: pr
+    - id: KI-PR-809
+      title: "PAY-PR-809: bump dep versions"
+      type: pr
+
+inputs:
+  alert_id: alert-payments-p99-2025-05-20
+  window: PT2H
+
+expected:
+  top1_deploy_id: deploy-pa-2.4.1
+  top1_confidence_min: 0.7
+  must_cite: [KI-PR-812]
+  must_not_cite: [KI-PR-809]
+
+scoring:
+  metrics:
+    top1_match:        { weight: 0.5, threshold: 1.0 }
+    citation_recall:   { weight: 0.3, threshold: 1.0 }
+    no_hallucinated_id: { weight: 0.2, threshold: 1.0 }
+  pass_if: total >= 0.85

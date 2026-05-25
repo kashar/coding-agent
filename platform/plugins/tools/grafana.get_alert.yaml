@@ -1,0 +1,45 @@
+name: grafana.get_alert
+version: 1.1.0
+description: Fetch a Grafana alert rule + recent firing history.
+
+transport:
+  kind: mcp
+  server: grafana
+  method: get_alert
+
+input_schema:
+  type: object
+  required: [alert_id]
+  properties:
+    alert_id: { type: string }
+    history_window: { type: string, default: P7D }
+
+output_schema:
+  type: object
+  properties:
+    alert:
+      type: object
+      properties:
+        id:        { type: string }
+        title:     { type: string }
+        severity:  { enum: [info, warning, critical] }
+        service:   { type: string }
+        dashboard_url: { type: string }
+        query:     { type: string }
+    fires:
+      type: array
+      items:
+        type: object
+        properties:
+          ts:     { type: string, format: date-time }
+          state:  { enum: [firing, resolved] }
+          labels: { type: object }
+
+scopes: [grafana:read]
+
+pii: { scrub_fields_in_output: [] }
+
+budget:
+  max_calls_per_minute_per_user: 60
+
+observability: { trace: true, audit: true }

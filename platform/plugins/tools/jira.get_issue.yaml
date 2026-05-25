@@ -1,0 +1,45 @@
+name: jira.get_issue
+version: 1.2.0
+description: Fetch a Jira issue with timeline (transitions, comments, links).
+
+transport: { kind: mcp, server: jira, method: get_issue }
+
+input_schema:
+  type: object
+  required: [key]
+  properties:
+    key: { type: string, pattern: "^[A-Z]+-[0-9]+$" }
+    include_timeline: { type: boolean, default: true }
+
+output_schema:
+  type: object
+  properties:
+    key:       { type: string }
+    summary:   { type: string }
+    status:    { type: string }
+    type:      { type: string }
+    priority:  { type: string }
+    reporter:  { type: object, properties: { id: {type: string}, name: {type: string} } }
+    assignee:  { type: object }
+    labels:    { type: array, items: { type: string } }
+    components: { type: array, items: { type: string } }
+    timeline:
+      type: array
+      items:
+        type: object
+        properties:
+          ts:    { type: string, format: date-time }
+          kind:  { enum: [comment, transition, link, attachment] }
+          actor: { type: string }
+          body:  { type: string }
+
+scopes: [jira:read]
+
+pii:
+  scrub_fields_in_output:
+    - reporter.email
+    - assignee.email
+
+budget: { max_calls_per_minute_per_user: 120 }
+
+observability: { trace: true, audit: true }

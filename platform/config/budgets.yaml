@@ -1,0 +1,29 @@
+version: 1
+
+global:
+  monthly_usd_cap: 50000
+  hard_stop_at_pct: 95
+  warn_at_pct: 80
+
+per_team:
+  platform: { monthly_usd_cap: 8000 }
+  sre:      { monthly_usd_cap: 6000 }
+  payments: { monthly_usd_cap: 5000 }
+  support:  { monthly_usd_cap: 4000 }
+  qa:       { monthly_usd_cap: 4000 }
+  ba:       { monthly_usd_cap: 2000 }
+
+per_workflow:
+  sre.incident-brief: { per_run_usd_cap: 0.50, daily_run_cap: 500 }
+  dev.explain-build-failure: { per_run_usd_cap: 0.30, daily_run_cap: 1000 }
+  qa.regression-plan: { per_run_usd_cap: 0.25, daily_run_cap: 2000 }
+  support.triage:     { per_run_usd_cap: 0.20, daily_run_cap: 3000 }
+  ba.epic-to-ac:      { per_run_usd_cap: 0.40, daily_run_cap: 200 }
+
+per_user:
+  default: { daily_usd_cap: 20 }
+
+actions_on_breach:
+  warn:  notify_owner_slack
+  soft:  throttle_to_cheaper_runtime
+  hard:  reject_with_explanation

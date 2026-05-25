@@ -1,0 +1,75 @@
+name: confluence
+version: 1.0.0
+kind: hybrid                          # webhook push + polling fallback
+description: Ingests Confluence pages and comments as KnowledgeItems.
+
+transport:
+  primary:   { kind: mcp, server: confluence }
+  fallback:  { kind: rest, base_url: ${CONFLUENCE_BASE_URL} }
+
+watermark:
+  store: postgres
+  table: source_watermarks
+  granularity: per_space
+
+incremental:
+  webhook:
+    events: [page.created, page.updated, page.removed, comment.created]
+    endpoint: /webhooks/confluence
+  poll:
+    cron: "*/15 * * * *"
+    query: "lastModified >= :watermark"
+
+extract:
+  spaces:
+    include: ["ENG", "OPS", "PROD", "RUN"]
+    exclude: ["HR", "LEGAL"]
+  attachments:
+    indexable_mime: [text/markdown, text/plain, application/pdf]
+
+normalize:
+  html_to_markdown: true
+  preserve:
+    - tables
+    - code_fences
+    - mermaid_blocks
+  strip:
+    - tracking_pixels
+    - empty_macros
+
+chunking:
+  strategy: heading_aware
+  max_tokens: 800
+  overlap_tokens: 120
+  keep_whole:
+    - tables
+    - code_blocks
+
+enrichment:
+  entities:
+    - kind: service     # match against service catalog
+    - kind: repo
+    - kind: jira_key    # regex [A-Z]+-\d+
+    - kind: person      # @mention resolver
+  link_to_graph: true
+  summary:
+    enabled: true
+    max_tokens: 200
+    model_policy: sensitivity_low
+
+embedding:
+  model: bge-large-en-v1.5            # self-hosted
+  dimensions: 1024
+  cache_by: chunk_hash
+
+acl:
+  source: confluence_space_permissions
+  propagate_to_retrieval: true
+
+pii:
+  scrub_at_ingest: true
+  detectors: [email, phone, ssn, internal_account_id]
+
+budget:
+  monthly_tokens_for_summary: 50_000_000
+  on_soft_cap: degrade_to_title_only

@@ -1,0 +1,31 @@
+version: 1
+
+stages: [dark, shadow, canary, ga]
+
+defaults:
+  dark:
+    runs_real: true
+    output_surfaced: false
+    eval_required: true
+  shadow:
+    runs_real: true
+    output_surfaced_to: author_only
+    parallel_with_human: true
+  canary:
+    traffic_pct: 10
+    feature_flag_required: true
+    page_on_error_spike: true
+  ga:
+    traffic_pct: 100
+
+kill_switches:
+  global:
+    env_var: PLATFORM_KILL
+  per_workflow: true
+  per_skill: true
+  llm_spend:
+    daily_global_usd: 5000
+    on_breach: stop_new_runs
+
+# Per-workflow promotion thresholds live in the workflow YAML under
+# rollout.promotion.* — this file holds platform-wide defaults only.

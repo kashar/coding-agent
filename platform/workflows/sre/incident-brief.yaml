@@ -1,0 +1,86 @@
+name: sre.incident-brief
+version: 0.4.0
+description: From a firing Grafana alert, produce a cited incident brief.
+owners: [team:sre]
+
+triggers:
+  - type: grafana.alert.firing
+    filter:
+      severity: [warning, critical]
+  - type: manual
+
+inputs:
+  alert_id: { type: string, required: true }
+
+sla:    { p95_seconds: 90 }
+budget: { max_cost_usd: 0.50, max_tools: 30 }
+
+agent: agents/sre/incident-responder@^1.0
+
+steps:
+  - id: correlate
+    skill: correlate-deploy-to-alert@^1.3
+    with:
+      alert_id: $.inputs.alert_id
+      window: PT2H
+
+  - id: enrich
+    skill: find-owning-team@^1.1
+    fanout:
+      over: $.correlate.candidates
+      as: candidate
+      with:
+        target: { kind: service, id: $.candidate.service }
+    collect: as enrichment
+
+  - id: brief
+    skill: incident-brief-draft@^1.0
+    with:
+      alert_id: $.inputs.alert_id
+      enrichment:
+        candidates: $.correlate.candidates
+        owners:     $.enrich.enrichment
+
+  - id: verify_citations
+    skill: cite-sources@^1.0
+    with:
+      draft:    $.brief.markdown
+      evidence: $.brief.citations
+
+  - id: human_gate
+    type: human
+    to: team:on-call-sre
+    surface: slack
+    payload:
+      brief: $.verify_citations.final
+      candidates: $.correlate.candidates
+      uncited: $.verify_citations.uncited
+    timeout: 15m
+    on_timeout: post-with-banner    # mark as un-reviewed and post anyway
+
+  - id: post
+    tool: slack.post
+    with:
+      channel: "#incidents"
+      body: $.human_gate.approved_body
+
+guardrails:
+  require_citations_on: [brief, verify_citations]
+  block_on_pii: true
+  scope_check: [grafana:read, bamboo:read, jira:read, slack:write]
+
+eval:
+  online_sample_rate: 0.10
+  offline_suite: eval/workflows/sre.incident-brief/
+
+rollout:
+  initial_stage: shadow
+  promotion:
+    shadow_to_canary:
+      min_runs: 50
+      groundedness_min: 0.85
+      task_success_min: 0.70
+    canary_to_ga:
+      min_days: 14
+      cost_p95_max_usd: 0.40
+      latency_p95_max_seconds: 90

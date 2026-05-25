@@ -1,0 +1,39 @@
+id: incident-brief-001
+description: |
+  End-to-end replay of the 2025-05-20 payments-api p99 incident. The
+  brief must identify v2.4.1 as the likely cause, name @payments as
+  owner, cite PAY-PR-812, and avoid speculation language.
+
+fixture_set: replays/2025-05-20-payments-p99
+
+inputs:
+  alert_id: alert-payments-p99-2025-05-20
+
+expected:
+  brief_contains:
+    - "payments-api"
+    - "v2.4.1"
+    - "[KI-PR-812]"
+  owner_team: payments
+  no_speculation_markers: true
+  citation_count_min: 3
+  uncited_claims_max: 0
+
+judges:
+  - kind: groundedness
+    rubric: |
+      Every factual sentence ends with a [KI-id]. Cited ids exist in the
+      retrieval fixture. No invented sources.
+    min_score: 0.85
+  - kind: factuality
+    rubric: |
+      Top-1 cause matches ground truth (deploy v2.4.1). Owner team
+      matches ground truth (payments).
+    min_score: 1.0
+  - kind: brevity
+    rubric: |
+      Summary ≤280 chars. Brief body ≤500 words.
+    min_score: 1.0
+
+scoring:
+  pass_if: all_judges_pass AND brief_contains_all AND citation_count_min_met

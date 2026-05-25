@@ -1,0 +1,16 @@
+# Platform core artifacts
+/platform/config/                     @platform
+/platform/plugins/runtimes/           @platform
+/platform/plugins/sources/            @platform
+/platform/plugins/tools/              @platform @security
+/platform/skills/shared/              @platform
+
+# Team-owned
+/platform/skills/sre/                 @sre
+/platform/agents/sre/                 @sre
+/platform/workflows/sre/              @sre
+/platform/teams/payments/             @payments
+
+# Evals follow skill ownership
+/platform/eval/skills/                @platform
+/platform/eval/workflows/             @platform

@@ -1,0 +1,50 @@
+version: 1
+
+defaults:
+  sensitivity_low:
+    prefer:   [haiku-4.5, gpt-4o-mini]
+    fallback: [llama-3.3-70b-vllm]
+    max_cost_usd_per_call: 0.02
+
+  sensitivity_medium:
+    prefer:   [sonnet-4.6]
+    fallback: [haiku-4.5, gpt-4o]
+    max_cost_usd_per_call: 0.10
+
+  sensitivity_high:
+    prefer:   [opus-4.7]
+    fallback: [sonnet-4.6]
+    max_cost_usd_per_call: 0.40
+
+# First match wins
+rules:
+  - when: { step.kind: "summarize" }
+    use:  sensitivity_low
+
+  - when: { step.kind: "code-gen" }
+    use:  sensitivity_high
+
+  - when: { skill: "incident-brief-draft" }
+    use:  sensitivity_medium
+
+  - when: { workflow: "support.triage", step: "draft" }
+    use:  sensitivity_medium
+
+  # Hard pin: anything touching PII goes to self-hosted only
+  - when: { data.contains: "pii" }
+    use:
+      providers: [on-prem-vllm]
+      models:    [llama-3.3-70b-vllm]
+
+runtimes:
+  amp:           { sdk: ampcode, base_url: ${AMP_URL} }
+  anthropic:     { sdk: anthropic, api_key: ${ANTHROPIC_API_KEY} }
+  openai:        { sdk: openai, api_key: ${OPENAI_API_KEY} }
+  bedrock:       { sdk: bedrock, region: us-east-1 }
+  on-prem-vllm:  { sdk: openai-compatible, base_url: ${VLLM_URL} }
+
+# Judge models for evals — kept distinct from generators to reduce bias
+judges:
+  groundedness: { model: gpt-4o,     runtime: openai }
+  factuality:   { model: sonnet-4.6, runtime: anthropic }
+  code_quality: { model: opus-4.7,   runtime: anthropic }
