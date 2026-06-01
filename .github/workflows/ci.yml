@@ -6,48 +6,50 @@ on:
   pull_request:
 
 # TEMPORARY DIAGNOSTIC WORKFLOW.
-# Each network-dependent step uses continue-on-error so they ALL run and report,
-# revealing exactly which capability the runner lacks (Node download, npm
-# registry, pnpm install). Restore the real build/test pipeline once diagnosed.
+# Every network-dependent step uses continue-on-error so they all run and report,
+# revealing which capability the runner lacks. Restore real pipeline once diagnosed.
 jobs:
   diagnose:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. Checkout
+      - name: Checkout
         continue-on-error: true
         uses: actions/checkout@v4
 
-      - name: 2. Preinstalled tools
+      - name: Preinstalled tools
         continue-on-error: true
         run: |
-          echo "node: $(node -v 2>&1 || echo MISSING)"
-          echo "npm:  $(npm -v 2>&1 || echo MISSING)"
-          echo "uname: $(uname -a)"
+          node -v || echo "node MISSING"
+          npm -v || echo "npm MISSING"
+          uname -a
 
-      - name: 3. Network reachability (preinstalled curl)
+      - name: Network reachability
         continue-on-error: true
         run: |
-          probe() { curl -sS -m 10 -o /dev/null -w "$1 -> HTTP %{http_code} in %{time_total}s\n" "$2" || echo "$1 -> UNREACHABLE"; }
-          probe "npm-registry " "https://registry.npmjs.org/"
-          probe "nodejs.org   " "https://nodejs.org/dist/index.json"
-          probe "github.com   " "https://github.com/"
-          probe "objects-cdn  " "https://objects.githubusercontent.com/"
+          probe() { curl -sS -m 10 -o /dev/null -w "$1 HTTP %{http_code} in %{time_total}s\n" "$2" || echo "$1 UNREACHABLE"; }
+          probe "npm-registry" "https://registry.npmjs.org/"
+          probe "nodejs-org"   "https://nodejs.org/dist/index.json"
+          probe "github"       "https://github.com/"
+          probe "objects-cdn"  "https://objects.githubusercontent.com/"
 
-      - name: 4. setup-node@v4 (downloads Node 22)
+      - name: Setup Node 22
         continue-on-error: true
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: 5. Node after setup-node
-        continue-on-error: true
-        run: echo "node now: $(node -v 2>&1 || echo MISSING)"
-
-      - name: 6. Install pnpm via npm
+      - name: Node after setup
         continue-on-error: true
         run: |
-          npm install -g pnpm@10.33.0 && echo "pnpm: $(pnpm -v)" || echo "pnpm install FAILED"
+          node -v || echo "node MISSING"
 
-      - name: 7. Frozen install (real dependency fetch)
+      - name: Install pnpm via npm
         continue-on-error: true
-        run: pnpm install --frozen-lockfile && echo "INSTALL OK" || echo "INSTALL FAILED"
+        run: |
+          npm install -g pnpm@10.33.0 || echo "pnpm install FAILED"
+          pnpm -v || echo "pnpm MISSING"
+
+      - name: Frozen install
+        continue-on-error: true
+        run: |
+          pnpm install --frozen-lockfile && echo "INSTALL OK" || echo "INSTALL FAILED"
