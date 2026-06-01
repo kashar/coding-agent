@@ -36,6 +36,15 @@ A working, verified backbone:
   its own confidence and **opens a Bitbucket PR** (commenting the link on Jira) when confident, or
   **gates for human approval** when not — selectable between Amp and Copilot.
 
+### Phase 2 — full app coverage, more workflows, MCP gateway
+- **Confluence + Bamboo** integrations added (clients + offline fixtures) → all five enterprise apps
+  (Jira, Confluence, Bitbucket/Stash, ELK, Bamboo) are covered.
+- **MCP gateway**: integrations exposed as a unified, schema-validated **tool registry** with
+  **per-task scoping** (a workflow step can attach extra tools/context just for that task).
+- **Four new config-driven workflows** (each persona-tagged, registered in one call):
+  `trace-request` (Support/QA), `triage` (Support/QA), `write-jira-stories` (BA, gated write),
+  `architecture-diagram` (Architect, Mermaid → optional Confluence publish).
+
 ## Monorepo layout
 ```
 packages/shared              types, zod schemas, event bus, logger, Result
@@ -44,11 +53,13 @@ packages/data                RunStore abstraction (SQLite + in-memory)
 packages/verification        pre/during/post checks + confidence scoring
 packages/learning            outcome capture, lessons, confidence calibration
 packages/auth-vault          encrypted credential vault (PAT / Basic / OAuth)
-packages/integrations        Jira, Bitbucket/Stash, ELK clients (+ offline fixtures)
+packages/integrations        Jira, Confluence, Bitbucket/Stash, ELK, Bamboo (+ offline fixtures)
+packages/mcp-gateway         unified MCP-style tool registry (per-task scoping)
 packages/context-engine      repo map + token-budgeted org-context assembly
 packages/core-orchestrator   durable workflow engine (start/pause/resume/stop)
-packages/workflows           persona workflows (flagship: fix-bug)
-apps/mission-control         Next.js control plane (UI + API + SSE)
+packages/workflows           persona workflows: fix-bug, trace-request, triage,
+                             write-jira-stories, architecture-diagram
+apps/mission-control         Next.js control plane (UI + API + SSE + tool registry)
 ```
 
 ## Quick start

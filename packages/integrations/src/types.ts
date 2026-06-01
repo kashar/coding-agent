@@ -8,10 +8,55 @@ export interface JiraIssue {
   readonly labels: readonly string[];
 }
 
+export interface NewJiraIssue {
+  readonly projectKey: string;
+  readonly summary: string;
+  readonly description: string;
+  /** e.g. "Story", "Bug", "Task". */
+  readonly issueType: string;
+  readonly labels?: readonly string[];
+}
+
 export interface IJiraClient {
   getIssue(key: string): Promise<JiraIssue>;
   searchIssues(jql: string): Promise<JiraIssue[]>;
   addComment(key: string, body: string): Promise<void>;
+  createIssue(issue: NewJiraIssue): Promise<JiraIssue>;
+}
+
+// ---- Confluence -------------------------------------------------------------
+export interface ConfluencePage {
+  readonly id: string;
+  readonly title: string;
+  /** Plain-text rendering of the page body. */
+  readonly body: string;
+  readonly spaceKey?: string;
+}
+
+export interface NewConfluencePage {
+  readonly spaceKey: string;
+  readonly title: string;
+  /** Storage-format (HTML) or plain text body. */
+  readonly body: string;
+}
+
+export interface IConfluenceClient {
+  getPage(id: string): Promise<ConfluencePage>;
+  searchPages(cql: string): Promise<ConfluencePage[]>;
+  createPage(page: NewConfluencePage): Promise<{ id: string; url: string }>;
+}
+
+// ---- Bamboo (CI/CD) ---------------------------------------------------------
+export interface BambooBuildResult {
+  readonly planKey: string;
+  readonly buildNumber: number;
+  readonly state: "Successful" | "Failed" | "Unknown";
+  readonly logSummary?: string;
+}
+
+export interface IBambooClient {
+  getLatestResult(planKey: string): Promise<BambooBuildResult>;
+  triggerBuild(planKey: string): Promise<{ buildNumber: number }>;
 }
 
 export interface ElkLogEntry {

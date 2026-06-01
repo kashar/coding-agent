@@ -38,6 +38,9 @@ importers:
       '@helmsman/learning':
         specifier: workspace:*
         version: link:../../packages/learning
+      '@helmsman/mcp-gateway':
+        specifier: workspace:*
+        version: link:../../packages/mcp-gateway
       '@helmsman/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -129,6 +132,18 @@ importers:
       '@helmsman/shared':
         specifier: workspace:*
         version: link:../shared
+
+  packages/mcp-gateway:
+    dependencies:
+      '@helmsman/integrations':
+        specifier: workspace:*
+        version: link:../integrations
+      '@helmsman/shared':
+        specifier: workspace:*
+        version: link:../shared
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
 
   packages/shared:
     dependencies:

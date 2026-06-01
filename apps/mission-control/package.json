@@ -17,6 +17,7 @@
     "@helmsman/execution-engines": "workspace:*",
     "@helmsman/integrations": "workspace:*",
     "@helmsman/learning": "workspace:*",
+    "@helmsman/mcp-gateway": "workspace:*",
     "@helmsman/shared": "workspace:*",
     "@helmsman/verification": "workspace:*",
     "@helmsman/workflows": "workspace:*",

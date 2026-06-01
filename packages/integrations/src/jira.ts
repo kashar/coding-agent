@@ -1,5 +1,5 @@
 import { HttpClient, type HttpClientConfig } from "./http.js";
-import type { IJiraClient, JiraIssue } from "./types.js";
+import type { IJiraClient, JiraIssue, NewJiraIssue } from "./types.js";
 
 interface JiraFields {
   summary?: string;
@@ -62,5 +62,28 @@ export class JiraClient implements IJiraClient {
     await this.http.post(`/rest/api/3/issue/${encodeURIComponent(key)}/comment`, {
       body: { type: "doc", version: 1, content: [{ type: "paragraph", content: [{ type: "text", text: body }] }] },
     });
+  }
+
+  async createIssue(issue: NewJiraIssue): Promise<JiraIssue> {
+    const res = await this.http.post<{ key: string }>(`/rest/api/3/issue`, {
+      fields: {
+        project: { key: issue.projectKey },
+        summary: issue.summary,
+        description: {
+          type: "doc",
+          version: 1,
+          content: [{ type: "paragraph", content: [{ type: "text", text: issue.description }] }],
+        },
+        issuetype: { name: issue.issueType },
+        labels: issue.labels ?? [],
+      },
+    });
+    return {
+      key: res.key,
+      summary: issue.summary,
+      description: issue.description,
+      status: "To Do",
+      labels: issue.labels ?? [],
+    };
   }
 }

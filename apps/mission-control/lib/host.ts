@@ -8,14 +8,20 @@ import {
 } from "@helmsman/execution-engines";
 import { InMemoryLearningStore, type LearningStore } from "@helmsman/learning";
 import { Orchestrator, WorkflowRegistry } from "@helmsman/core-orchestrator";
-import { createFixBugWorkflow } from "@helmsman/workflows";
+import {
+  createArchitectureDiagramWorkflow,
+  createFixBugWorkflow,
+  createTraceRequestWorkflow,
+  createTriageWorkflow,
+  createWriteStoriesWorkflow,
+} from "@helmsman/workflows";
+import { buildIntegrationTools, ToolRegistry } from "@helmsman/mcp-gateway";
 import { builtinWorkflows } from "./workflows";
-import { buildFixBugDeps, buildVault } from "./fix-bug-deps";
+import { buildClients, buildVault } from "./clients";
 
 /**
  * Process-wide Helmsman runtime host. Cached on globalThis so Next.js hot-reload and multiple
- * route handlers share a single orchestrator, event bus, and store. All three execution engines
- * are registered; availability is probed at selection time.
+ * route handlers share a single orchestrator, event bus, store, and tool registry.
  */
 export interface Host {
   readonly store: RunStore;
@@ -24,6 +30,8 @@ export interface Host {
   readonly workflows: WorkflowRegistry;
   readonly learning: LearningStore;
   readonly orchestrator: Orchestrator;
+  readonly tools: ToolRegistry;
+  readonly live: boolean;
 }
 
 declare global {
@@ -42,16 +50,42 @@ async function build(): Promise<Host> {
     .register(new CopilotAdapter())
     .register(new MockEngine());
 
+  const vault = buildVault();
+  const c = await buildClients(vault);
+
+  // Config-driven workflow registry: adding a workflow is a single register() call.
   const workflows = new WorkflowRegistry();
   for (const def of builtinWorkflows) workflows.register(def);
+  workflows.register(
+    createFixBugWorkflow({
+      jira: c.jira,
+      elk: c.elk,
+      bitbucket: c.bitbucket,
+      repoRef: c.repoRef,
+      repo: c.repo,
+      targetBranch: c.targetBranch,
+      learning,
+    }),
+  );
+  workflows.register(createTraceRequestWorkflow({ elk: c.elk, repo: c.repo }));
+  workflows.register(createTriageWorkflow({ jira: c.jira, elk: c.elk }));
+  workflows.register(createWriteStoriesWorkflow({ confluence: c.confluence, jira: c.jira }));
+  workflows.register(createArchitectureDiagramWorkflow({ repo: c.repo, confluence: c.confluence }));
 
-  // Register the flagship config-driven Fix-bug workflow (real clients when configured).
-  const vault = buildVault();
-  const fixBugDeps = await buildFixBugDeps(learning, vault);
-  workflows.register(createFixBugWorkflow(fixBugDeps));
+  // Unified MCP-style tool registry over the configured integrations.
+  const tools = new ToolRegistry();
+  for (const t of buildIntegrationTools({
+    jira: c.jira,
+    confluence: c.confluence,
+    elk: c.elk,
+    bamboo: c.bamboo,
+    bitbucket: c.bitbucket,
+  })) {
+    tools.register(t);
+  }
 
   const orchestrator = new Orchestrator({ store, workflows, engines, bus, logger, learning });
-  return { store, bus, engines, workflows, learning, orchestrator };
+  return { store, bus, engines, workflows, learning, orchestrator, tools, live: c.live };
 }
 
 export function getHost(): Promise<Host> {

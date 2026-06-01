@@ -1,10 +1,16 @@
 import type {
+  BambooBuildResult,
+  ConfluencePage,
   ElkLogEntry,
   ElkQuery,
+  IBambooClient,
   IBitbucketClient,
+  IConfluenceClient,
   IElkClient,
   IJiraClient,
   JiraIssue,
+  NewConfluencePage,
+  NewJiraIssue,
   NewPullRequest,
   PullRequest,
   RepoRef,
@@ -34,6 +40,62 @@ export class FixtureJiraClient implements IJiraClient {
   }
   async addComment(key: string, body: string): Promise<void> {
     this.comments.push({ key, body });
+  }
+  async createIssue(issue: NewJiraIssue): Promise<JiraIssue> {
+    const key = `${issue.projectKey}-${++this.issueCounter}`;
+    const created: JiraIssue = {
+      key,
+      summary: issue.summary,
+      description: issue.description,
+      status: "To Do",
+      labels: issue.labels ?? [],
+    };
+    (this.issues as Record<string, JiraIssue>)[key] = created;
+    this.created.push(created);
+    return created;
+  }
+  readonly created: JiraIssue[] = [];
+  private issueCounter = 1000;
+}
+
+export class FixtureConfluenceClient implements IConfluenceClient {
+  readonly createdPages: { id: string; title: string; spaceKey: string }[] = [];
+  private pageCounter = 5000;
+  constructor(private readonly pages: Record<string, ConfluencePage> = {}) {}
+
+  seed(page: ConfluencePage): this {
+    (this.pages as Record<string, ConfluencePage>)[page.id] = page;
+    return this;
+  }
+  async getPage(id: string): Promise<ConfluencePage> {
+    const page = this.pages[id];
+    if (!page) throw new Error(`Fixture: unknown Confluence page ${id}`);
+    return page;
+  }
+  async searchPages(): Promise<ConfluencePage[]> {
+    return Object.values(this.pages);
+  }
+  async createPage(page: NewConfluencePage): Promise<{ id: string; url: string }> {
+    const id = String(++this.pageCounter);
+    this.createdPages.push({ id, title: page.title, spaceKey: page.spaceKey });
+    return { id, url: `https://confluence.example/pages/${id}` };
+  }
+}
+
+export class FixtureBambooClient implements IBambooClient {
+  readonly triggered: string[] = [];
+  constructor(private readonly results: Record<string, BambooBuildResult> = {}) {}
+
+  seed(result: BambooBuildResult): this {
+    (this.results as Record<string, BambooBuildResult>)[result.planKey] = result;
+    return this;
+  }
+  async getLatestResult(planKey: string): Promise<BambooBuildResult> {
+    return this.results[planKey] ?? { planKey, buildNumber: 0, state: "Unknown" };
+  }
+  async triggerBuild(planKey: string): Promise<{ buildNumber: number }> {
+    this.triggered.push(planKey);
+    return { buildNumber: 1 };
   }
 }
 
