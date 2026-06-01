@@ -13,7 +13,8 @@
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm build && pnpm --filter @helmsman/core-orchestrator --filter @helmsman/auth-vault --filter @helmsman/learning --filter @helmsman/mcp-gateway --filter @helmsman/execution-engines --filter @helmsman/context-engine --filter @helmsman/workflows run test",
     "lint": "pnpm -r run lint",
-    "demo:fixbug": "pnpm --filter @helmsman/core-orchestrator run demo"
+    "demo:fixbug": "pnpm --filter @helmsman/core-orchestrator run demo",
+    "onboard": "pnpm --filter @helmsman/auth-vault run build && pnpm --filter @helmsman/auth-vault run onboard"
   },
   "devDependencies": {
     "@types/node": "^22.13.0",

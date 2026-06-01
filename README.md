@@ -1,116 +1,259 @@
 # ⎈ Helmsman — Agentic SDLC Platform
 
-Helmsman is an **engine-agnostic, self-checking, self-improving** agentic platform for the
-software development lifecycle. It reads codebases, pulls business and org context from enterprise
-systems (Jira, Confluence, Bitbucket/Stash, ELK, Bamboo) via MCP, and runs autonomous workflows
-for **Dev, QA, Support, and BA** teams — all observable and controllable from a **Mission Control**
-UI.
+Helmsman is a **fully agentic, engine-agnostic, self-checking, self-improving** platform for the
+software development lifecycle. It reads codebases, pulls business and operational context from
+enterprise systems (Jira, Confluence, Bitbucket/Stash, ELK, Bamboo) via an MCP-style tool layer,
+and runs autonomous, observable workflows for **Dev, QA, Support, BA, Architect, and Analyst**
+teams — all controlled from a **Mission Control** UI.
 
 All model/coding work flows through a single `ExecutionEngine` seam with **co-equal Amp
-(Sourcegraph)** and **GitHub Copilot** adapters (plus a deterministic Mock engine for offline dev).
-There is no direct LLM dependency.
+(Sourcegraph)** and **GitHub Copilot** adapters, plus a deterministic **Mock** engine so the whole
+platform runs offline with no credentials. There is no direct LLM dependency.
 
-> Full design and phased plan: see [`PROMPT.md`](./PROMPT.md).
+> Phased design history and rationale: see [`PROMPT.md`](./PROMPT.md).
 
-## Status — Phase 0 (Foundation) + Phase 1 (Fix-bug MVP) ✅
-A working, verified backbone:
-- **Config-driven workflow engine** with durable **start / pause / resume / stop** (resumes from a
-  persisted cursor).
-- **Execution engines**: `ExecutionEngine` interface + **Amp**, **Copilot**, and **Mock** adapters,
-  selected by a per-run/per-workflow policy (overridable from Mission Control).
-- **Verification**: pre/during/post checks → a calibrated **confidence score**; low confidence
-  flags work for human approval.
-- **Learning** (skeleton): captures run outcomes and a lessons store; computes confidence
-  calibration error for self-improvement.
-- **Local-first persistence** via Node's built-in `node:sqlite` (Postgres-ready abstraction).
-- **Mission Control** (Next.js): list/start workflows, pick an engine, pause/resume/stop runs, and
-  watch a live SSE event feed.
+---
 
-### Phase 1 — flagship **Fix-bug** workflow (end-to-end)
-- **Integrations**: Jira, Bitbucket/Stash (Server/DC), and ELK clients — real HTTP impls **and**
-  offline fixtures behind one interface, so the workflow runs fully offline or against live systems.
-- **Auth vault**: PAT / Basic / OAuth credentials in an **AES-256-GCM encrypted** local vault.
-- **Context engine**: single-repo understanding (file map + code search) + token-budgeted org-context
-  assembly (Jira + ELK + code + learned lessons).
-- **Fix-bug workflow**: `assemble-context → propose-fix → self-verify → open-PR-or-gate`. It scores
-  its own confidence and **opens a Bitbucket PR** (commenting the link on Jira) when confident, or
-  **gates for human approval** when not — selectable between Amp and Copilot.
+## Table of contents
+1. [What it does](#what-it-does)
+2. [Architecture](#architecture)
+3. [Workflows](#workflows)
+4. [How the agent understands large, complex codebases](#how-the-agent-understands-large-complex-codebases)
+5. [Self-checking & self-learning](#self-checking--self-learning)
+6. [Quick start (offline)](#quick-start-offline)
+7. [Onboarding: connect your org's systems](#onboarding-connect-your-orgs-systems)
+8. [Configuration reference](#configuration-reference)
+9. [Mission Control](#mission-control)
+10. [Extending Helmsman](#extending-helmsman)
+11. [Testing & CI](#testing--ci)
 
-### Phase 2 — full app coverage, more workflows, MCP gateway
-- **Confluence + Bamboo** integrations added (clients + offline fixtures) → all five enterprise apps
-  (Jira, Confluence, Bitbucket/Stash, ELK, Bamboo) are covered.
-- **MCP gateway**: integrations exposed as a unified, schema-validated **tool registry** with
-  **per-task scoping** (a workflow step can attach extra tools/context just for that task).
-- **Four new config-driven workflows** (each persona-tagged, registered in one call):
-  `trace-request` (Support/QA), `triage` (Support/QA), `write-jira-stories` (BA, gated write),
-  `architecture-diagram` (Architect, Mermaid → optional Confluence publish).
+---
 
-### Phase 4 — full persona coverage, durability, real edits, approvals
-- **Solution-design** (Architect/BA) and **business-analysis** (BA) workflows complete the persona set.
-- **Human-approval action**: gated runs can be **approved** from Mission Control to proceed with
-  side-effects (the Fix-bug PR), via an `approved` input flag.
-- **Real code edits**: Amp/Copilot adapters capture concrete `changedFiles` + `diff` via **git**
-  after a task runs against a working tree.
-- **Durability**: a Postgres-backed `RunStore` (`PgRunStore`, selected by `HELMSMAN_PG_URL`) and
-  **crash-recovery** that turns runs orphaned by a restart back into resumable ones on startup.
-- **Mission Control**: lessons inspector + approve button.
+## What it does
 
-### Built for any org, any project, any stack — and large codebases
-- **Any technology**: the context engine covers 50+ languages out of the box and accepts custom
-  extensions; nothing is tied to a specific build system or framework.
-- **Large/complex codebases**: instead of dumping files, `RepoMap` does **relevance-ranked
-  retrieval** across the whole tree, honours `.gitignore`, applies size/file-count guards to stay
-  tractable on monorepos, and extracts **cross-language symbol outlines** so the agent reasons
-  about structure, not just text.
-- **Any organisation/project**: integration endpoints, credentials (vault), the target repo
-  (`HELMSMAN_REPO_DIR`), branch, and engine policy are all configuration — switch orgs/projects
-  without code changes. Workflows, personas, and MCP tools are added declaratively.
+- **Reaches the codebase** — multi-language repo understanding with relevance-ranked retrieval and
+  symbol outlines (built for large, polyglot monorepos).
+- **Understands business & org context** — pulls Jira issues, Confluence specs, ELK logs/traces,
+  Bamboo build results, and Bitbucket code via a unified tool registry.
+- **Runs SDLC workflows** — fix bugs, trace requests, write Jira stories, triage, diagram
+  architecture, design solutions, run business analysis — each mapped to a persona.
+- **Checks its own work** — pre/during/post checks, an LLM self-critique, a calibrated confidence
+  score, and **human-approval gates** before any side-effect (PR, Jira/Confluence write).
+- **Learns and improves** — captures outcomes + lessons, feeds them back into context, and tunes
+  which engine to use per workflow from observed success rates.
+- **Is observable & controllable** — Mission Control starts/stops/pauses/resumes runs, streams live
+  events, shows per-run timelines, metrics, and the learning state.
 
-### Phase 3 — closed self-learning loop + richer Mission Control
-- **Durable learning** (`SqliteLearningStore`): outcomes and lessons persist across restarts.
-- **Closed loop**: every run records an outcome; failures and low-confidence runs auto-generate
-  **lessons** that the context engine injects into future runs. An **engine advisor** recommends the
-  best-performing engine per workflow (from past success rates) and the orchestrator prefers it.
-- **Confidence calibration**: Brier-style predicted-vs-realized error tracked over time.
-- **Mission Control**: a **metrics dashboard** (runs by status/workflow, avg confidence, gated
-  count, engine usage, calibration, learned best-engine) and a **run-detail page** with the full
-  step timeline (status, engine, checks, output) and pause/resume/stop controls.
+Works for **any organisation, any project, any technology stack** — everything org-specific
+(endpoints, credentials, target repo, engine policy) is configuration, and workflows/personas/
+integrations/engines are added declaratively.
 
-## Monorepo layout
+---
+
+## Architecture
+
+A TypeScript **pnpm monorepo**. Every component depends on interfaces, never concrete providers.
+
 ```
-packages/shared              types, zod schemas, event bus, logger, Result
-packages/execution-engines   ExecutionEngine + Amp / Copilot / Mock adapters + registry
-packages/data                RunStore abstraction (SQLite + in-memory)
-packages/verification        pre/during/post checks + confidence scoring
-packages/learning            outcome capture, lessons, confidence calibration
-packages/auth-vault          encrypted credential vault (PAT / Basic / OAuth)
-packages/integrations        Jira, Confluence, Bitbucket/Stash, ELK, Bamboo (+ offline fixtures)
-packages/mcp-gateway         unified MCP-style tool registry (per-task scoping)
-packages/context-engine      repo map + token-budgeted org-context assembly
-packages/core-orchestrator   durable workflow engine (start/pause/resume/stop)
-packages/workflows           persona workflows: fix-bug, trace-request, triage, write-jira-stories,
-                             architecture-diagram, solution-design, business-analysis
-apps/mission-control         Next.js control plane (UI + API + SSE + tool registry)
+packages/
+  shared              core types + zod schemas, event bus, secret-redacting logger, Result
+  execution-engines   ExecutionEngine interface + Amp / Copilot / Mock adapters + policy registry
+                      + git-based change capture
+  data                RunStore abstraction: SQLite (local-first), Postgres (PgRunStore), in-memory
+  verification        pre/during/post checks + calibrated confidence scoring
+  learning            durable outcomes + lessons + confidence calibration + engine recommendation
+  auth-vault          AES-256-GCM encrypted credential vault (PAT / Basic / OAuth) + onboarding CLI
+  integrations        Jira, Confluence, Bitbucket/Stash, ELK, Bamboo clients (+ offline fixtures)
+  mcp-gateway         unified, schema-validated tool registry with per-task scoping
+  context-engine      RepoMap (multi-language, ranked retrieval, outlines) + org-context assembly
+  core-orchestrator   durable workflow engine: start/pause/resume/stop, crash recovery, metrics
+  workflows           persona workflows (config-driven)
+apps/
+  mission-control     Next.js full-stack control plane: UI + API + SSE + tool/metrics endpoints
 ```
 
-## Quick start
+### Execution flow
+1. A **workflow** (a declarative list of typed steps) is started via Mission Control or the API.
+2. The **orchestrator** selects an `ExecutionEngine` (explicit choice → learning recommendation →
+   policy fallback), then runs steps sequentially, persisting each step + emitting events.
+3. Steps use the **context engine** (code + org context) and the **MCP gateway** (integration
+   tools), and call the engine for generation/agentic work.
+4. **Verification** runs checks and computes a confidence score; low confidence **gates** side
+   effects for human approval.
+5. The **learning** store records the outcome, distils lessons, and updates engine recommendations.
+
+Runs are **durable** (persisted per step) and **resumable** (start/pause/resume/stop); runs
+orphaned by a crash are recovered to a resumable state on startup.
+
+---
+
+## Workflows
+
+| Workflow | Persona | Summary |
+|---|---|---|
+| `fix-bug` | Developer | Jira/ELK/code context → propose fix → self-verify → open Bitbucket PR (human-gated) |
+| `trace-request` | Support/QA | Correlate a request across services from ELK logs → narrate the trace |
+| `triage` | Support/QA | Classify severity/category from Jira + ELK signals → comment on the issue |
+| `write-jira-stories` | Analyst/BA | Extract requirements from a Confluence spec → create Jira stories (gated write) |
+| `architecture-diagram` | Architect | Derive a Mermaid diagram from the codebase → optional Confluence publish |
+| `solution-design` | Architect/BA | Draft a design from spec/issue → optional Confluence publish |
+| `business-analysis` | Analyst/BA | Analyse requirements vs the codebase → report coverage gaps on the issue |
+
+Personas: Analyst, Architect, Developer, Tester, Reviewer, Documentor, Support. New workflows and
+personas are **added by a single `register()` call** — the orchestrator never changes.
+
+---
+
+## How the agent understands large, complex codebases
+
+The `context-engine` `RepoMap` is built to scale and to work with any stack:
+
+- **Any technology** — 50+ language extensions out of the box (`DEFAULT_CODE_EXTENSIONS`), plus
+  `extensions`/`extraExtensions` options. No build-system or framework coupling.
+- **Stays tractable on monorepos** — honours `.gitignore`, skips noisy directories, and applies
+  `maxFiles` / `maxFileBytes` guards.
+- **Relevance-ranked retrieval** — `rankRelevantFiles(query)` scores the whole tree by filename,
+  path, and sampled content matches, so the agent reads the *right* files instead of everything.
+- **Structural awareness** — `outline(path)` extracts classes/functions/types across languages, so
+  context includes code *structure*, not just text.
+- **Token-budgeted assembly** — `assembleContext()` ranks business context → lessons → logs → code
+  structure → code references into a bounded bundle for the engine.
+
+---
+
+## Self-checking & self-learning
+
+- **Verification** (`verification`): each step can declare pre/during/post `Check`s; results feed
+  `scoreConfidence()`. Below the approval threshold (default 0.75), the run **requires human
+  approval** before side effects.
+- **Learning** (`learning`, durable in SQLite):
+  - records an **outcome** per run (engine, success, predicted confidence, human intervention);
+  - turns failures / low-confidence runs into **lessons** that the context engine injects into
+    future runs for the same workflow/tags;
+  - tracks **calibration** (Brier error: predicted vs realized);
+  - recommends the **best engine per workflow** from observed success rates — the orchestrator
+    prefers it automatically when no engine is explicitly chosen.
+
+---
+
+## Quick start (offline)
+
+Requires **Node ≥ 22.5** (for the built-in `node:sqlite`) and **pnpm 10**.
+
 ```bash
 pnpm install
-pnpm build                 # build all packages
-pnpm test                  # orchestrator pause/resume/stop + learning tests
-pnpm demo:fixbug           # offline end-to-end demo on the Mock engine
+pnpm build          # build all packages
+pnpm test           # 37 tests across all suites
+pnpm demo:fixbug    # offline end-to-end fix-bug demo on the Mock engine
 
-# Mission Control
-pnpm --filter @helmsman/mission-control dev    # http://localhost:4317
+# Mission Control (offline: seeded fixtures + Mock engine)
+pnpm --filter @helmsman/mission-control dev   # http://localhost:4317
 ```
 
-### Engine configuration
-The Amp and Copilot adapters shell out to their CLIs (`amp`, `copilot`); override the binaries with
-`HELMSMAN_AMP_BIN` / `HELMSMAN_COPILOT_BIN`. When neither is available the engine policy falls back
-to the deterministic Mock engine, so the whole platform runs offline.
+Out of the box (no credentials) Helmsman runs entirely on **seeded fixtures + the Mock engine**, so
+you can explore every workflow and the full UI immediately.
 
-## Principles
-Engine-agnostic · config-driven extensibility (workflows, personas, MCP servers, context per task) ·
-self-checking (confidence + human gates) · self-learning (lessons + calibration) · fully observable.
+---
 
-Requires Node ≥ 22.5 (for `node:sqlite`).
+## Onboarding: connect your org's systems
+
+The onboarding CLI captures credentials for each MCP/enterprise integration and stores them in the
+**encrypted local vault** (AES-256-GCM). Non-secret endpoints are written to `.helmsman/helmsman.env`
+(gitignored) and auto-loaded by Mission Control. Secrets are **never** written to that file.
+
+### Interactive
+```bash
+pnpm onboard            # walk through Jira, Confluence, Bitbucket, ELK, Bamboo
+pnpm onboard jira       # configure a single app
+pnpm onboard list       # show which apps have stored credentials
+```
+You'll be asked for each app's base URL and auth (secrets are masked in a TTY). On first run a vault
+master key is generated at `.helmsman/vault.key` (mode 0600). **For production, set
+`HELMSMAN_VAULT_KEY` instead** of relying on the local key file.
+
+### Non-interactive (automation/CI)
+```bash
+pnpm onboard jira --url https://acme.atlassian.net --kind basic \
+     --username me@acme.com --password "$JIRA_API_TOKEN"
+
+pnpm onboard bitbucket --url https://stash.acme --kind pat --token "$BB_PAT" \
+     --project APP --slug web
+
+pnpm onboard elk --url https://elk.acme:9200 --kind basic --username elastic --password "$ELK_PW"
+```
+Auth `--kind` is one of `basic` (username/password or email/API-token), `pat` (token, sent as
+Bearer; add `--scheme basic-username` for token-as-username), or `oauth` (`--access-token`).
+
+After onboarding, start Mission Control and it switches from fixtures to your live systems
+automatically:
+```bash
+HELMSMAN_REPO_DIR=/path/to/your/repo pnpm --filter @helmsman/mission-control dev
+```
+
+---
+
+## Configuration reference
+
+All configuration is via environment variables (or `.helmsman/helmsman.env`, written by onboarding).
+
+| Variable | Purpose |
+|---|---|
+| `HELMSMAN_VAULT_KEY` | Master secret for the encrypted vault (recommended for production) |
+| `HELMSMAN_REPO_DIR` | Path to the repository the agent reasons about (default: cwd) |
+| `HELMSMAN_TARGET_BRANCH` | Base branch for PRs (default `main`) |
+| `HELMSMAN_JIRA_URL` / vault key `jira` | Jira base URL + credential |
+| `HELMSMAN_CONFLUENCE_URL` / `confluence` | Confluence base URL + credential |
+| `HELMSMAN_BITBUCKET_URL` / `bitbucket` | Bitbucket/Stash base URL + credential |
+| `HELMSMAN_BITBUCKET_PROJECT`, `HELMSMAN_BITBUCKET_SLUG` | Target repo coordinates |
+| `HELMSMAN_ELK_URL` / `elk` | Elasticsearch base URL + credential |
+| `HELMSMAN_BAMBOO_URL` / `bamboo` | Bamboo base URL + credential |
+| `HELMSMAN_AMP_BIN` / `HELMSMAN_COPILOT_BIN` | Override the Amp / Copilot CLI binaries |
+| `HELMSMAN_DB` | SQLite path for run state (default `./data/helmsman.sqlite`) |
+| `HELMSMAN_LEARNING_DB` | SQLite path for learning state |
+| `HELMSMAN_PG_URL` | Use Postgres for run state instead of SQLite (durability graduation) |
+| `HELMSMAN_LOG_LEVEL` | `debug` / `info` / `warn` / `error` |
+
+**Engine selection:** the Amp/Copilot adapters shell out to their CLIs; if neither is available, the
+policy falls back to the Mock engine. The learning store can override the default per workflow.
+
+---
+
+## Mission Control
+
+A Next.js full-stack app (`apps/mission-control`).
+
+- **Dashboard** — start any workflow, choose an engine (or auto), and see all runs.
+- **Metrics panel** — runs by status/workflow, average confidence, gated count, engine usage,
+  calibration error, learned best-engine per workflow, and lessons learned.
+- **Run detail** (`/runs/[id]`) — full step timeline (status, engine, per-step checks, output),
+  pause/resume/stop, and an **Approve & proceed** button for gated runs.
+- **Live events** — Server-Sent Events stream of every run/step event.
+
+API: `GET/POST /api/runs`, `GET/POST /api/runs/[id]`, `GET /api/stream`, `GET /api/metrics`,
+`GET /api/tools`.
+
+---
+
+## Extending Helmsman
+
+- **Add a workflow** — write a `WorkflowDefinition` factory (typed steps + optional checks) and
+  register it in the host. Tag it with a persona.
+- **Add an integration** — implement the client interface (+ a fixture for offline), expose it as
+  MCP tools via `buildIntegrationTools`.
+- **Add an execution engine** — implement `ExecutionEngine` and register it; workflows are
+  unaffected.
+- **Per-task tools/context** — a workflow step can attach extra MCP tools via `ToolRegistry.scoped()`
+  without touching the base registry.
+
+---
+
+## Testing & CI
+
+- `pnpm test` runs the suite (orchestrator, execution-engines, context-engine, verification-backed
+  workflows, learning, mcp-gateway, auth-vault/onboarding).
+- Everything is deterministic offline (Mock engine + fixtures), so CI needs no external services.
+- CI (`.github/workflows/ci.yml`): install → **build → typecheck** (build precedes typecheck
+  because cross-package types resolve via emitted `dist/*.d.ts`) → test → offline demo → Mission
+  Control build.
+
+Requires Node ≥ 22.5.
