@@ -1,13 +1,30 @@
+# dependencies
+node_modules/
+.pnpm-store/
 
-embabel-agent-api/src/main/resources/mcp/**
+# build output
+dist/
+build/
+*.tsbuildinfo
+.next/
+out/
 
-/target/**
-*/target/**
-*/*/target/**
-*/*/*/target/**
+# local data & secrets (NEVER commit)
+*.local
+.env
+.env.*
+!.env.example
+.helmsman/
+*.vault
+*.sqlite
+*.sqlite-*
+data/
 
-.idea/workspace.xml
+# logs
+*.log
+logs/
 
-**/*.log
-
-mcp.env
+# editor / os
+.idea/
+.vscode/
+.DS_Store

@@ -1,0 +1,27 @@
+{
+  "name": "@helmsman/core-orchestrator",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test dist/*.test.js",
+    "demo": "node dist/demo.js"
+  },
+  "dependencies": {
+    "@helmsman/shared": "workspace:*",
+    "@helmsman/data": "workspace:*",
+    "@helmsman/execution-engines": "workspace:*",
+    "@helmsman/verification": "workspace:*",
+    "@helmsman/learning": "workspace:*"
+  }
+}
