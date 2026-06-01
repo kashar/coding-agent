@@ -25,6 +25,11 @@ export interface OrchestratorDeps {
   readonly learning?: LearningStore;
   /** Confidence below this forces human approval before completing. */
   readonly approvalThreshold?: number;
+  /**
+   * Learning-driven engine recommendation. When no explicit engine is requested, the orchestrator
+   * asks the advisor which engine has performed best for the workflow and prefers it.
+   */
+  readonly engineAdvisor?: (workflowId: string) => Promise<string | undefined>;
 }
 
 export interface StartOptions {
@@ -113,7 +118,10 @@ export class Orchestrator {
 
   private async drive(initial: RunRecord, opts: StartOptions): Promise<DriveResult> {
     const def = this.deps.workflows.get(initial.workflowId)!;
-    const engine = await this.deps.engines.select(def.enginePolicy, opts.preferredEngineId);
+    // No explicit engine? Let the learning advisor recommend the best performer for this workflow.
+    const preferredId =
+      opts.preferredEngineId ?? (await this.deps.engineAdvisor?.(initial.workflowId));
+    const engine = await this.deps.engines.select(def.enginePolicy, preferredId);
     const control = this.control.get(initial.id) ?? { paused: false, cancelled: false };
     const outputs = await this.rebuildOutputs(initial.id);
     const signals: Record<string, unknown> = {};
@@ -283,15 +291,32 @@ export class Orchestrator {
 
   private async captureOutcome(run: RunRecord, engineId: string, success: boolean): Promise<void> {
     const def = this.deps.workflows.get(run.workflowId);
-    await this.deps.learning?.recordOutcome({
+    if (!this.deps.learning) return;
+    const tags = def?.tags ?? [];
+    await this.deps.learning.recordOutcome({
       runId: run.id,
       workflowId: run.workflowId,
       engineId,
       success,
       predictedConfidence: run.confidence?.score ?? 0.5,
       humanIntervened: run.confidence?.requiresHumanApproval ?? false,
-      tags: def?.tags ?? [],
+      tags: [...tags],
       at: nowIso(),
     });
+
+    // Close the loop: turn notable outcomes into lessons retrieved by future runs.
+    if (!success) {
+      await this.deps.learning.addLesson({
+        workflowId: run.workflowId,
+        tags: [...tags],
+        text: `Run on ${engineId} failed; review preconditions and check inputs before retrying.`,
+      });
+    } else if (run.confidence?.requiresHumanApproval) {
+      await this.deps.learning.addLesson({
+        workflowId: run.workflowId,
+        tags: [...tags],
+        text: `Low confidence (${run.confidence.score.toFixed(2)}): ${run.confidence.rationale}. Gather stronger context next time.`,
+      });
+    }
   }
 }

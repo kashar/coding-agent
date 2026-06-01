@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types"
+    "test": "node --test dist/*.test.js"
   },
   "dependencies": {
     "@helmsman/shared": "workspace:*"

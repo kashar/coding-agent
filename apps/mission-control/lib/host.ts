@@ -6,7 +6,7 @@ import {
   ExecutionEngineRegistry,
   MockEngine,
 } from "@helmsman/execution-engines";
-import { InMemoryLearningStore, type LearningStore } from "@helmsman/learning";
+import { SqliteLearningStore, type LearningStore } from "@helmsman/learning";
 import { Orchestrator, WorkflowRegistry } from "@helmsman/core-orchestrator";
 import {
   createArchitectureDiagramWorkflow,
@@ -43,7 +43,7 @@ async function build(): Promise<Host> {
   const logger = createLogger("info", { component: "mission-control" });
   const bus = new InProcessEventBus();
   const store = new SqliteRunStore();
-  const learning = new InMemoryLearningStore();
+  const learning = new SqliteLearningStore();
 
   const engines = new ExecutionEngineRegistry()
     .register(new AmpAdapter())
@@ -84,7 +84,16 @@ async function build(): Promise<Host> {
     tools.register(t);
   }
 
-  const orchestrator = new Orchestrator({ store, workflows, engines, bus, logger, learning });
+  const orchestrator = new Orchestrator({
+    store,
+    workflows,
+    engines,
+    bus,
+    logger,
+    learning,
+    // Closed learning loop: prefer the engine that has performed best for each workflow.
+    engineAdvisor: (workflowId) => learning.bestEngineFor(workflowId),
+  });
   return { store, bus, engines, workflows, learning, orchestrator, tools, live: c.live };
 }
 

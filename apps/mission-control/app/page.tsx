@@ -19,6 +19,17 @@ interface EngineRow {
   id: string;
   displayName: string;
 }
+interface Metrics {
+  metrics: {
+    totalRuns: number;
+    byStatus: Record<string, number>;
+    avgConfidence: number;
+    approvalGated: number;
+    engineUsage: Record<string, { steps: number; inputTokens: number; outputTokens: number }>;
+  };
+  calibrationError: number;
+  learning: Record<string, { bestEngine?: string; lessons: string[] }>;
+}
 
 const card: React.CSSProperties = {
   background: "#11161f",
@@ -45,15 +56,17 @@ export default function Page() {
   const [engineId, setEngineId] = useState("");
   const [input, setInput] = useState("fix the flaky login test");
   const [events, setEvents] = useState<string[]>([]);
+  const [metrics, setMetrics] = useState<Metrics | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
 
   const refresh = useCallback(async () => {
-    const res = await fetch("/api/runs");
-    const data = await res.json();
+    const [runsRes, metricsRes] = await Promise.all([fetch("/api/runs"), fetch("/api/metrics")]);
+    const data = await runsRes.json();
     setRuns(data.runs);
     setWorkflows(data.workflows);
     setEngines(data.engines);
     if (!workflowId && data.workflows[0]) setWorkflowId(data.workflows[0].id);
+    if (metricsRes.ok) setMetrics(await metricsRes.json());
   }, [workflowId]);
 
   useEffect(() => {
@@ -136,7 +149,11 @@ export default function Page() {
             <tbody>
               {runs.map((r) => (
                 <tr key={r.id} style={{ borderTop: "1px solid #21262d" }}>
-                  <td>{r.workflowId}</td>
+                  <td>
+                    <a href={`/runs/${r.id}`} style={{ color: "#58a6ff", textDecoration: "none" }}>
+                      {r.workflowId}
+                    </a>
+                  </td>
                   <td>{r.status}</td>
                   <td>{r.nextStepIndex}</td>
                   <td>{r.confidence ? r.confidence.score.toFixed(2) : "—"}</td>
@@ -165,8 +182,54 @@ export default function Page() {
         </div>
       </div>
 
-      <div style={card}>
-        <h3 style={{ marginTop: 0 }}>Live events</h3>
+      <div>
+        <div style={card}>
+          <h3 style={{ marginTop: 0 }}>Metrics</h3>
+          {metrics ? (
+            <div style={{ fontSize: 13, lineHeight: 1.7 }}>
+              <div>
+                Total runs: <b>{metrics.metrics.totalRuns}</b>
+              </div>
+              <div>
+                {Object.entries(metrics.metrics.byStatus).map(([s, n]) => (
+                  <span key={s} style={{ marginRight: 10, color: "#9fb0c0" }}>
+                    {s}: {n}
+                  </span>
+                ))}
+              </div>
+              <div>
+                Avg confidence: <b>{metrics.metrics.avgConfidence.toFixed(2)}</b> · gated:{" "}
+                {metrics.metrics.approvalGated}
+              </div>
+              <div>
+                Calibration error: <b>{metrics.calibrationError.toFixed(3)}</b>
+              </div>
+              <div style={{ marginTop: 6, color: "#7d8590" }}>Engine usage</div>
+              {Object.entries(metrics.metrics.engineUsage).map(([e, u]) => (
+                <div key={e} style={{ color: "#9fb0c0" }}>
+                  {e}: {u.steps} steps, {u.outputTokens} out-tok
+                </div>
+              ))}
+              {Object.entries(metrics.learning).some(([, l]) => l.bestEngine) && (
+                <>
+                  <div style={{ marginTop: 6, color: "#7d8590" }}>Learned best engine</div>
+                  {Object.entries(metrics.learning)
+                    .filter(([, l]) => l.bestEngine)
+                    .map(([wf, l]) => (
+                      <div key={wf} style={{ color: "#9fb0c0" }}>
+                        {wf} → {l.bestEngine}
+                      </div>
+                    ))}
+                </>
+              )}
+            </div>
+          ) : (
+            <div style={{ color: "#7d8590" }}>No metrics yet — start a run.</div>
+          )}
+        </div>
+
+        <div style={card}>
+          <h3 style={{ marginTop: 0 }}>Live events</h3>
         <div
           ref={logRef}
           style={{
@@ -180,6 +243,7 @@ export default function Page() {
           {events.map((e, i) => (
             <div key={i}>{e}</div>
           ))}
+        </div>
         </div>
       </div>
     </div>

@@ -45,6 +45,16 @@ A working, verified backbone:
   `trace-request` (Support/QA), `triage` (Support/QA), `write-jira-stories` (BA, gated write),
   `architecture-diagram` (Architect, Mermaid → optional Confluence publish).
 
+### Phase 3 — closed self-learning loop + richer Mission Control
+- **Durable learning** (`SqliteLearningStore`): outcomes and lessons persist across restarts.
+- **Closed loop**: every run records an outcome; failures and low-confidence runs auto-generate
+  **lessons** that the context engine injects into future runs. An **engine advisor** recommends the
+  best-performing engine per workflow (from past success rates) and the orchestrator prefers it.
+- **Confidence calibration**: Brier-style predicted-vs-realized error tracked over time.
+- **Mission Control**: a **metrics dashboard** (runs by status/workflow, avg confidence, gated
+  count, engine usage, calibration, learned best-engine) and a **run-detail page** with the full
+  step timeline (status, engine, checks, output) and pause/resume/stop controls.
+
 ## Monorepo layout
 ```
 packages/shared              types, zod schemas, event bus, logger, Result
