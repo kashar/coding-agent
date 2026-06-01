@@ -5,38 +5,49 @@ on:
     branches: ["claude/**", "main"]
   pull_request:
 
+# TEMPORARY DIAGNOSTIC WORKFLOW.
+# Each network-dependent step uses continue-on-error so they ALL run and report,
+# revealing exactly which capability the runner lacks (Node download, npm
+# registry, pnpm install). Restore the real build/test pipeline once diagnosed.
 jobs:
-  build-test:
+  diagnose:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: 1. Checkout
+        continue-on-error: true
+        uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: 2. Preinstalled tools
+        continue-on-error: true
+        run: |
+          echo "node: $(node -v 2>&1 || echo MISSING)"
+          echo "npm:  $(npm -v 2>&1 || echo MISSING)"
+          echo "uname: $(uname -a)"
+
+      - name: 3. Network reachability (preinstalled curl)
+        continue-on-error: true
+        run: |
+          probe() { curl -sS -m 10 -o /dev/null -w "$1 -> HTTP %{http_code} in %{time_total}s\n" "$2" || echo "$1 -> UNREACHABLE"; }
+          probe "npm-registry " "https://registry.npmjs.org/"
+          probe "nodejs.org   " "https://nodejs.org/dist/index.json"
+          probe "github.com   " "https://github.com/"
+          probe "objects-cdn  " "https://objects.githubusercontent.com/"
+
+      - name: 4. setup-node@v4 (downloads Node 22)
+        continue-on-error: true
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      # Provision pnpm via the preinstalled npm (most network-light, no corepack
-      # signature step, no marketplace action). Version matches packageManager.
-      - name: Install pnpm
+      - name: 5. Node after setup-node
+        continue-on-error: true
+        run: echo "node now: $(node -v 2>&1 || echo MISSING)"
+
+      - name: 6. Install pnpm via npm
+        continue-on-error: true
         run: |
-          npm install -g pnpm@10.33.0
-          pnpm --version
+          npm install -g pnpm@10.33.0 && echo "pnpm: $(pnpm -v)" || echo "pnpm install FAILED"
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Typecheck packages
-        run: pnpm -r --filter "./packages/*" run typecheck
-
-      - name: Build packages
-        run: pnpm -r --filter "./packages/*" run build
-
-      - name: Test
-        run: pnpm --filter @helmsman/core-orchestrator run test
-
-      - name: Offline end-to-end demo (Mock engine)
-        run: pnpm demo:fixbug
-
-      - name: Build Mission Control
-        run: pnpm --filter @helmsman/mission-control run build
+      - name: 7. Frozen install (real dependency fetch)
+        continue-on-error: true
+        run: pnpm install --frozen-lockfile && echo "INSTALL OK" || echo "INSTALL FAILED"
