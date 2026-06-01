@@ -24,11 +24,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck packages
-        run: pnpm -r --filter "./packages/*" run typecheck
-
+      # Build first: cross-package type resolution (e.g. @helmsman/shared) needs the
+      # emitted dist/*.d.ts, so typecheck/test/demo must run after the build.
       - name: Build packages
         run: pnpm -r --filter "./packages/*" run build
+
+      - name: Typecheck packages
+        run: pnpm -r --filter "./packages/*" run typecheck
 
       - name: Test
         run: pnpm --filter @helmsman/core-orchestrator run test
