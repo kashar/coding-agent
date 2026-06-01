@@ -5,51 +5,36 @@ on:
     branches: ["claude/**", "main"]
   pull_request:
 
-# TEMPORARY DIAGNOSTIC WORKFLOW.
-# Every network-dependent step uses continue-on-error so they all run and report,
-# revealing which capability the runner lacks. Restore real pipeline once diagnosed.
 jobs:
-  diagnose:
+  build-test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        continue-on-error: true
         uses: actions/checkout@v4
 
-      - name: Preinstalled tools
-        continue-on-error: true
-        run: |
-          node -v || echo "node MISSING"
-          npm -v || echo "npm MISSING"
-          uname -a
-
-      - name: Network reachability
-        continue-on-error: true
-        run: |
-          probe() { curl -sS -m 10 -o /dev/null -w "$1 HTTP %{http_code} in %{time_total}s\n" "$2" || echo "$1 UNREACHABLE"; }
-          probe "npm-registry" "https://registry.npmjs.org/"
-          probe "nodejs-org"   "https://nodejs.org/dist/index.json"
-          probe "github"       "https://github.com/"
-          probe "objects-cdn"  "https://objects.githubusercontent.com/"
-
       - name: Setup Node 22
-        continue-on-error: true
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Node after setup
-        continue-on-error: true
-        run: |
-          node -v || echo "node MISSING"
+      # Provision pnpm via the preinstalled npm — proven to work on the runner.
+      - name: Install pnpm
+        run: npm install -g pnpm@10.33.0
 
-      - name: Install pnpm via npm
-        continue-on-error: true
-        run: |
-          npm install -g pnpm@10.33.0 || echo "pnpm install FAILED"
-          pnpm -v || echo "pnpm MISSING"
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Frozen install
-        continue-on-error: true
-        run: |
-          pnpm install --frozen-lockfile && echo "INSTALL OK" || echo "INSTALL FAILED"
+      - name: Typecheck packages
+        run: pnpm -r --filter "./packages/*" run typecheck
+
+      - name: Build packages
+        run: pnpm -r --filter "./packages/*" run build
+
+      - name: Test
+        run: pnpm --filter @helmsman/core-orchestrator run test
+
+      - name: Offline end-to-end demo (Mock engine)
+        run: pnpm demo:fixbug
+
+      - name: Build Mission Control
+        run: pnpm --filter @helmsman/mission-control run build
