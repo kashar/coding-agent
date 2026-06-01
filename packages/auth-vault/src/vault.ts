@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import type { Credential } from "./credentials.js";
 
 /**
@@ -90,4 +90,38 @@ export class EncryptedFileVault implements Vault {
   async list(): Promise<string[]> {
     return Object.keys(this.records);
   }
+}
+
+/** Default location of the locally-generated vault master key (gitignored). */
+export const VAULT_KEY_FILE = process.env.HELMSMAN_VAULT_KEY_FILE ?? "./.helmsman/vault.key";
+
+/**
+ * Resolve the vault master secret: `HELMSMAN_VAULT_KEY` env wins; otherwise a local key file is
+ * used. With `create: true`, a new random key is generated and persisted (0600) when none exists.
+ * Returns undefined when no key is available and creation was not requested.
+ */
+export function resolveVaultKey(opts: { create?: boolean } = {}): string | undefined {
+  const fromEnv = process.env.HELMSMAN_VAULT_KEY;
+  if (fromEnv) return fromEnv;
+  if (existsSync(VAULT_KEY_FILE)) {
+    const key = readFileSync(VAULT_KEY_FILE, "utf8").trim();
+    if (key) return key;
+  }
+  if (opts.create) {
+    const key = randomBytes(32).toString("hex");
+    const dir = dirname(VAULT_KEY_FILE);
+    if (dir && dir !== ".") mkdirSync(dir, { recursive: true });
+    writeFileSync(VAULT_KEY_FILE, key, { mode: 0o600 });
+    return key;
+  }
+  return undefined;
+}
+
+/**
+ * Construct the appropriate vault: an encrypted file vault when a master key is resolvable,
+ * otherwise an ephemeral in-memory vault (dev fallback). Pass `create` to mint a key on first use.
+ */
+export function defaultVault(opts: { create?: boolean } = {}): Vault {
+  const key = resolveVaultKey(opts);
+  return key ? new EncryptedFileVault(undefined, key) : new InMemoryVault();
 }

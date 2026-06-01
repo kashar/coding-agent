@@ -1,4 +1,5 @@
-import { InMemoryVault, type Credential, type Vault } from "@helmsman/auth-vault";
+import { existsSync, readFileSync } from "node:fs";
+import { defaultVault, type Credential, type Vault } from "@helmsman/auth-vault";
 import {
   BambooClient,
   BitbucketServerClient,
@@ -35,7 +36,22 @@ export interface HelmsmanClients {
  * Build all enterprise clients. When the endpoints + vault credentials are configured, real HTTP
  * clients are used; otherwise seeded fixtures keep every workflow runnable offline.
  */
+/** Load `.helmsman/helmsman.env` (written by `pnpm onboard`) into process.env without overriding. */
+function loadHelmsmanEnv(path = process.env.HELMSMAN_ENV_FILE ?? "./.helmsman/helmsman.env"): void {
+  if (!existsSync(path)) return;
+  for (const raw of readFileSync(path, "utf8").split("\n")) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+    const eq = line.indexOf("=");
+    if (eq <= 0) continue;
+    const key = line.slice(0, eq).trim();
+    const value = line.slice(eq + 1).trim();
+    if (!(key in process.env)) process.env[key] = value;
+  }
+}
+
 export async function buildClients(vault: Vault): Promise<HelmsmanClients> {
+  loadHelmsmanEnv();
   const repoRef: RepoRef = {
     project: process.env.HELMSMAN_BITBUCKET_PROJECT ?? "APP",
     slug: process.env.HELMSMAN_BITBUCKET_SLUG ?? "web",
@@ -105,7 +121,7 @@ export async function buildClients(vault: Vault): Promise<HelmsmanClients> {
   };
 }
 
-/** A vault for the host: encrypted file vault when a key is set, otherwise ephemeral in-memory. */
+/** A vault for the host: encrypted file vault when a master key is resolvable, else in-memory. */
 export function buildVault(): Vault {
-  return new InMemoryVault();
+  return defaultVault();
 }
