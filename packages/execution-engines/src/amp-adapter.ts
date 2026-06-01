@@ -1,5 +1,6 @@
 import { nowIso } from "@helmsman/shared";
 import { commandExists, runCli } from "./cli-runner.js";
+import { captureGitChanges } from "./git.js";
 import {
   EngineUnavailableError,
   type AgenticTaskResult,
@@ -73,9 +74,10 @@ export class AmpAdapter implements ExecutionEngine {
   async runAgenticTask(spec: AgenticTaskSpec): Promise<AgenticTaskResult> {
     const prompt = [spec.context, spec.objective].filter(Boolean).join("\n\n");
     const { text } = await this.exec(prompt, spec.workingDir);
+    const changes = spec.workingDir ? await captureGitChanges(spec.workingDir) : { changedFiles: [] };
     return {
       summary: text,
-      changedFiles: [],
+      changedFiles: [...changes.changedFiles],
       usage: { engineId: this.id },
       events: [{ kind: "message", text, at: nowIso() }],
     };
@@ -86,6 +88,11 @@ export class AmpAdapter implements ExecutionEngine {
       .filter(Boolean)
       .join("\n\n");
     const { text } = await this.exec(prompt, req.workingDir);
-    return { changedFiles: [], diff: text, usage: { engineId: this.id } };
+    const changes = await captureGitChanges(req.workingDir);
+    return {
+      changedFiles: [...changes.changedFiles],
+      diff: changes.diff || text,
+      usage: { engineId: this.id },
+    };
   }
 }

@@ -17,6 +17,10 @@
     "test": "node --test --experimental-strip-types"
   },
   "dependencies": {
-    "@helmsman/shared": "workspace:*"
+    "@helmsman/shared": "workspace:*",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10"
   }
 }

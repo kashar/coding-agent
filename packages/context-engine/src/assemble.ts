@@ -1,16 +1,18 @@
 import type { ElkLogEntry, JiraIssue } from "@helmsman/integrations";
 import type { Lesson } from "@helmsman/learning";
+import type { CodeHit, OutlineItem } from "./repo-map.js";
 
-export interface CodeHit {
+export interface FileOutline {
   readonly path: string;
-  readonly line: number;
-  readonly text: string;
+  readonly items: readonly OutlineItem[];
 }
 
 export interface ContextInputs {
   readonly issue?: JiraIssue;
   readonly logs?: readonly ElkLogEntry[];
   readonly codeHits?: readonly CodeHit[];
+  /** Structural outlines of the most relevant files (for large-codebase awareness). */
+  readonly outlines?: readonly FileOutline[];
   readonly lessons?: readonly Lesson[];
   /** Approximate character budget for the assembled bundle. */
   readonly charBudget?: number;
@@ -18,7 +20,8 @@ export interface ContextInputs {
 
 /**
  * Assemble a ranked, budget-bounded context bundle handed to the execution engine. Order reflects
- * priority: business context (Jira) → learned lessons → runtime signals (ELK) → grounded code.
+ * priority: business context (Jira) → learned lessons → runtime signals (ELK) → code structure →
+ * grounded code references.
  */
 export function assembleContext(inputs: ContextInputs): string {
   const budget = inputs.charBudget ?? 12_000;
@@ -33,9 +36,7 @@ export function assembleContext(inputs: ContextInputs): string {
   }
 
   if (inputs.lessons?.length) {
-    sections.push(
-      `## Lessons from past runs\n` + inputs.lessons.map((l) => `- ${l.text}`).join("\n"),
-    );
+    sections.push(`## Lessons from past runs\n` + inputs.lessons.map((l) => `- ${l.text}`).join("\n"));
   }
 
   if (inputs.logs?.length) {
@@ -48,10 +49,21 @@ export function assembleContext(inputs: ContextInputs): string {
     );
   }
 
+  if (inputs.outlines?.length) {
+    sections.push(
+      `## Relevant code structure\n` +
+        inputs.outlines
+          .map(
+            (o) =>
+              `### ${o.path}\n` + o.items.map((it) => `  L${it.line} ${it.kind}: ${it.text}`).join("\n"),
+          )
+          .join("\n"),
+    );
+  }
+
   if (inputs.codeHits?.length) {
     sections.push(
-      `## Code references\n` +
-        inputs.codeHits.map((h) => `${h.path}:${h.line}: ${h.text}`).join("\n"),
+      `## Code references\n` + inputs.codeHits.map((h) => `${h.path}:${h.line}: ${h.text}`).join("\n"),
     );
   }
 

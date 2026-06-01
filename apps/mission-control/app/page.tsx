@@ -222,6 +222,18 @@ export default function Page() {
                     ))}
                 </>
               )}
+              {Object.entries(metrics.learning).some(([, l]) => l.lessons.length > 0) && (
+                <>
+                  <div style={{ marginTop: 6, color: "#7d8590" }}>Lessons learned</div>
+                  {Object.entries(metrics.learning).flatMap(([wf, l]) =>
+                    l.lessons.map((text, i) => (
+                      <div key={`${wf}-${i}`} style={{ color: "#9fb0c0", fontSize: 12 }}>
+                        <span style={{ color: "#7d8590" }}>{wf}:</span> {text}
+                      </div>
+                    )),
+                  )}
+                </>
+              )}
             </div>
           ) : (
             <div style={{ color: "#7d8590" }}>No metrics yet — start a run.</div>

@@ -92,6 +92,21 @@ export class Orchestrator {
     if (c) c.cancelled = true;
   }
 
+  /**
+   * Recover runs left in "running" by a crash/restart: mark them paused so they can be resumed
+   * from their persisted cursor. Call once on startup. Returns the recovered run ids.
+   */
+  async recoverOrphanedRuns(): Promise<string[]> {
+    const running = await this.deps.store.listRuns({ status: "running", limit: 1000 });
+    const recovered: string[] = [];
+    for (const run of running) {
+      await this.setRunStatus(run, "paused");
+      this.control.set(run.id, { paused: false, cancelled: false });
+      recovered.push(run.id);
+    }
+    return recovered;
+  }
+
   /** Resume a previously paused run from its persisted cursor. */
   async resume(runId: string, opts: StartOptions = {}): Promise<DriveResult> {
     const run = await this.deps.store.getRun(runId);

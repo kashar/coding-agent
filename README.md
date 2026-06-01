@@ -45,6 +45,27 @@ A working, verified backbone:
   `trace-request` (Support/QA), `triage` (Support/QA), `write-jira-stories` (BA, gated write),
   `architecture-diagram` (Architect, Mermaid → optional Confluence publish).
 
+### Phase 4 — full persona coverage, durability, real edits, approvals
+- **Solution-design** (Architect/BA) and **business-analysis** (BA) workflows complete the persona set.
+- **Human-approval action**: gated runs can be **approved** from Mission Control to proceed with
+  side-effects (the Fix-bug PR), via an `approved` input flag.
+- **Real code edits**: Amp/Copilot adapters capture concrete `changedFiles` + `diff` via **git**
+  after a task runs against a working tree.
+- **Durability**: a Postgres-backed `RunStore` (`PgRunStore`, selected by `HELMSMAN_PG_URL`) and
+  **crash-recovery** that turns runs orphaned by a restart back into resumable ones on startup.
+- **Mission Control**: lessons inspector + approve button.
+
+### Built for any org, any project, any stack — and large codebases
+- **Any technology**: the context engine covers 50+ languages out of the box and accepts custom
+  extensions; nothing is tied to a specific build system or framework.
+- **Large/complex codebases**: instead of dumping files, `RepoMap` does **relevance-ranked
+  retrieval** across the whole tree, honours `.gitignore`, applies size/file-count guards to stay
+  tractable on monorepos, and extracts **cross-language symbol outlines** so the agent reasons
+  about structure, not just text.
+- **Any organisation/project**: integration endpoints, credentials (vault), the target repo
+  (`HELMSMAN_REPO_DIR`), branch, and engine policy are all configuration — switch orgs/projects
+  without code changes. Workflows, personas, and MCP tools are added declaratively.
+
 ### Phase 3 — closed self-learning loop + richer Mission Control
 - **Durable learning** (`SqliteLearningStore`): outcomes and lessons persist across restarts.
 - **Closed loop**: every run records an outcome; failures and low-confidence runs auto-generate
@@ -67,8 +88,8 @@ packages/integrations        Jira, Confluence, Bitbucket/Stash, ELK, Bamboo (+ o
 packages/mcp-gateway         unified MCP-style tool registry (per-task scoping)
 packages/context-engine      repo map + token-budgeted org-context assembly
 packages/core-orchestrator   durable workflow engine (start/pause/resume/stop)
-packages/workflows           persona workflows: fix-bug, trace-request, triage,
-                             write-jira-stories, architecture-diagram
+packages/workflows           persona workflows: fix-bug, trace-request, triage, write-jira-stories,
+                             architecture-diagram, solution-design, business-analysis
 apps/mission-control         Next.js control plane (UI + API + SSE + tool registry)
 ```
 

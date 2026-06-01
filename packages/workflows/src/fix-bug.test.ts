@@ -94,3 +94,22 @@ test("sparse context → low confidence → gates for human approval, no PR", as
   const last = steps.at(-1)!;
   assert.equal((last.output as { status: string }).status, "pending-approval");
 });
+
+test("sparse context but human-approved → opens the PR anyway", async () => {
+  const jira = new FixtureJiraClient().seed(issue);
+  const elk = new FixtureElkClient([]);
+  const bitbucket = new FixtureBitbucketClient();
+
+  const { orch, store } = makeOrchestrator({
+    jira,
+    elk,
+    bitbucket,
+    repoRef: { project: "APP", slug: "web" },
+  });
+
+  const { runId, status } = await orch.start("fix-bug", { issueKey: "BUG-1", approved: true });
+  assert.equal(status, "completed");
+  assert.equal(bitbucket.pullRequests.length, 1, "approval should force the PR open");
+  const steps = await store.listSteps(runId);
+  assert.equal((steps.at(-1)!.output as { status: string }).status, "pr-opened");
+});

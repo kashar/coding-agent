@@ -3,3 +3,5 @@ export * from "./trace-request.js";
 export * from "./triage.js";
 export * from "./write-jira-stories.js";
 export * from "./architecture-diagram.js";
+export * from "./solution-design.js";
+export * from "./business-analysis.js";

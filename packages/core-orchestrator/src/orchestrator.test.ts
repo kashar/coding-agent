@@ -80,3 +80,23 @@ test("records a learning outcome on completion", async () => {
   await orch.start("t.three", "go");
   assert.equal(await learning.calibrationError() >= 0, true);
 });
+
+test("recoverOrphanedRuns marks crashed running runs as resumable", async () => {
+  const { orch, store } = makeOrchestrator();
+  const now = new Date().toISOString();
+  await store.createRun({
+    id: "orphan-1",
+    workflowId: "t.three",
+    status: "running",
+    nextStepIndex: 1,
+    createdAt: now,
+    updatedAt: now,
+  });
+  const recovered = await orch.recoverOrphanedRuns();
+  assert.deepEqual(recovered, ["orphan-1"]);
+  assert.equal((await store.getRun("orphan-1"))?.status, "paused");
+
+  // And it can be resumed to completion from its cursor.
+  const res = await orch.resume("orphan-1");
+  assert.equal(res.status, "completed");
+});

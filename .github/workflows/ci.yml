@@ -33,7 +33,7 @@ jobs:
         run: pnpm -r --filter "./packages/*" run typecheck
 
       - name: Test
-        run: pnpm --filter @helmsman/core-orchestrator --filter @helmsman/auth-vault --filter @helmsman/learning --filter @helmsman/mcp-gateway --filter @helmsman/workflows run test
+        run: pnpm --filter @helmsman/core-orchestrator --filter @helmsman/auth-vault --filter @helmsman/learning --filter @helmsman/mcp-gateway --filter @helmsman/execution-engines --filter @helmsman/context-engine --filter @helmsman/workflows run test
 
       - name: Offline end-to-end demo (Mock engine)
         run: pnpm demo:fixbug

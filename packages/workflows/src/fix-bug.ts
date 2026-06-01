@@ -16,6 +16,8 @@ export const FixBugInput = z.object({
   issueKey: z.string().min(1),
   /** Optional override for the ELK query; defaults to the issue summary. */
   logQuery: z.string().optional(),
+  /** Human approval to proceed with side-effects even when confidence is low. */
+  approved: z.boolean().optional(),
 });
 export type FixBugInput = z.infer<typeof FixBugInput>;
 
@@ -84,10 +86,15 @@ export function createFixBugWorkflow(deps: FixBugDeps): WorkflowDefinition {
           s.logCount = logs.length;
 
           let codeHits: CodeHit[] = [];
+          let outlines: { path: string; items: ReturnType<RepoMap["outline"]> }[] = [];
           if (deps.repo) {
+            // Relevance-rank across the whole codebase, then outline the top files — this scales
+            // to large, complex repos far better than a single grep.
+            const ranked = deps.repo.rankRelevantFiles(`${s.issue.summary} ${s.issue.description}`, 5);
+            ctx.log(`Top relevant files: ${ranked.map((r) => r.path).join(", ") || "(none)"}`);
+            outlines = ranked.map((r) => ({ path: r.path, items: deps.repo!.outline(r.path, 20) }));
             const term = s.issue.summary.split(/\s+/).find((w) => w.length > 4) ?? input.issueKey;
-            ctx.log(`Grounding in code: searching for "${term}"`);
-            codeHits = deps.repo.search(term, 15);
+            codeHits = deps.repo.search(term, 10);
           }
           s.codeHits = codeHits;
 
@@ -99,6 +106,7 @@ export function createFixBugWorkflow(deps: FixBugDeps): WorkflowDefinition {
             issue: s.issue,
             logs,
             codeHits,
+            outlines,
             lessons,
           });
           return { issueKey: input.issueKey, logCount: logs.length, codeHits: codeHits.length };
@@ -170,14 +178,18 @@ export function createFixBugWorkflow(deps: FixBugDeps): WorkflowDefinition {
           const s = signals(ctx);
           const input = FixBugInput.parse(ctx.workflowInput);
           const confidence = s.confidence;
+          const gated = !confidence || confidence.requiresHumanApproval;
 
-          if (!confidence || confidence.requiresHumanApproval) {
+          if (gated && !input.approved) {
             ctx.log("Low confidence → gating for human approval; no PR opened.");
             return {
               status: "pending-approval" as const,
               confidence,
               proposal: s.proposal,
             };
+          }
+          if (gated && input.approved) {
+            ctx.log("Low confidence but human-approved → proceeding to open PR.");
           }
 
           const branch = `fix/${input.issueKey.toLowerCase()}`;

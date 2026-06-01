@@ -1,5 +1,5 @@
 import { createLogger, InProcessEventBus, type EventBus } from "@helmsman/shared";
-import { SqliteRunStore, type RunStore } from "@helmsman/data";
+import { PgRunStore, SqliteRunStore, type RunStore } from "@helmsman/data";
 import {
   AmpAdapter,
   CopilotAdapter,
@@ -10,7 +10,9 @@ import { SqliteLearningStore, type LearningStore } from "@helmsman/learning";
 import { Orchestrator, WorkflowRegistry } from "@helmsman/core-orchestrator";
 import {
   createArchitectureDiagramWorkflow,
+  createBusinessAnalysisWorkflow,
   createFixBugWorkflow,
+  createSolutionDesignWorkflow,
   createTraceRequestWorkflow,
   createTriageWorkflow,
   createWriteStoriesWorkflow,
@@ -42,7 +44,8 @@ declare global {
 async function build(): Promise<Host> {
   const logger = createLogger("info", { component: "mission-control" });
   const bus = new InProcessEventBus();
-  const store = new SqliteRunStore();
+  // Durability graduation: use Postgres when configured, else local-first SQLite.
+  const store: RunStore = process.env.HELMSMAN_PG_URL ? new PgRunStore() : new SqliteRunStore();
   const learning = new SqliteLearningStore();
 
   const engines = new ExecutionEngineRegistry()
@@ -71,6 +74,8 @@ async function build(): Promise<Host> {
   workflows.register(createTriageWorkflow({ jira: c.jira, elk: c.elk }));
   workflows.register(createWriteStoriesWorkflow({ confluence: c.confluence, jira: c.jira }));
   workflows.register(createArchitectureDiagramWorkflow({ repo: c.repo, confluence: c.confluence }));
+  workflows.register(createSolutionDesignWorkflow({ confluence: c.confluence, jira: c.jira }));
+  workflows.register(createBusinessAnalysisWorkflow({ jira: c.jira, repo: c.repo }));
 
   // Unified MCP-style tool registry over the configured integrations.
   const tools = new ToolRegistry();
@@ -94,6 +99,10 @@ async function build(): Promise<Host> {
     // Closed learning loop: prefer the engine that has performed best for each workflow.
     engineAdvisor: (workflowId) => learning.bestEngineFor(workflowId),
   });
+
+  // Recover runs orphaned by a previous crash/restart so they become resumable.
+  await orchestrator.recoverOrphanedRuns().catch(() => undefined);
+
   return { store, bus, engines, workflows, learning, orchestrator, tools, live: c.live };
 }
 

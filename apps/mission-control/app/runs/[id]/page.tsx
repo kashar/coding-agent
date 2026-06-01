@@ -82,6 +82,21 @@ export default function RunDetail() {
 
   if (!run) return <div style={{ color: "#7d8590" }}>Loading run {id}…</div>;
 
+  // A gated run completes with a "pending-approval" final step; offer to re-run with approval.
+  const lastOutput = steps.at(-1)?.output as { status?: string } | undefined;
+  const pendingApproval = lastOutput?.status === "pending-approval";
+
+  const approve = async () => {
+    const input = { ...(run.input as Record<string, unknown>), approved: true };
+    const res = await fetch("/api/runs", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ workflowId: run.workflowId, input }),
+    });
+    const data = await res.json();
+    if (data.runId) window.location.href = `/runs/${data.runId}`;
+  };
+
   return (
     <div>
       <a href="/" style={{ color: "#58a6ff", fontSize: 13 }}>
@@ -114,7 +129,17 @@ export default function RunDetail() {
           <button style={{ ...btn, background: "#b62324" }} onClick={() => control("stop")}>
             Stop
           </button>
+          {pendingApproval && (
+            <button style={{ ...btn, background: "#238636" }} onClick={approve}>
+              ✓ Approve &amp; proceed
+            </button>
+          )}
         </div>
+        {pendingApproval && (
+          <div style={{ marginTop: 8, color: "#d29922", fontSize: 13 }}>
+            ⚠ This run was gated for human approval. Approving re-runs it with side-effects enabled.
+          </div>
+        )}
       </div>
 
       <div style={card}>
