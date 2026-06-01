@@ -10,12 +10,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@helmsman/auth-vault": "workspace:*",
+    "@helmsman/context-engine": "workspace:*",
     "@helmsman/core-orchestrator": "workspace:*",
     "@helmsman/data": "workspace:*",
     "@helmsman/execution-engines": "workspace:*",
+    "@helmsman/integrations": "workspace:*",
     "@helmsman/learning": "workspace:*",
     "@helmsman/shared": "workspace:*",
     "@helmsman/verification": "workspace:*",
+    "@helmsman/workflows": "workspace:*",
     "next": "^15.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

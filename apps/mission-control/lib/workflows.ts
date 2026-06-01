@@ -46,30 +46,4 @@ export const builtinWorkflows: WorkflowDefinition[] = [
       },
     ],
   },
-  {
-    id: "fix-bug",
-    description: "Flagship Phase 1 workflow (scaffold): context → locate → patch → verify → PR.",
-    persona: "developer",
-    enginePolicy: { preference: ["amp", "copilot", "mock"] },
-    tags: ["dev", "bug"],
-    steps: [
-      {
-        name: "assemble-context",
-        async run(ctx) {
-          ctx.log("Assembling Jira/ELK/code context (Phase 1 will wire real integrations)");
-          return `context for: ${String(ctx.workflowInput)}`;
-        },
-      },
-      {
-        name: "propose-fix",
-        checks: [producesOutput],
-        async run(ctx) {
-          ctx.log("Proposing a fix via the selected engine");
-          return (
-            await ctx.engine.runAgenticTask({ objective: `Fix: ${String(ctx.workflowInput)}` })
-          ).summary;
-        },
-      },
-    ],
-  },
 ];

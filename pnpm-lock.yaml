@@ -17,6 +17,12 @@ importers:
 
   apps/mission-control:
     dependencies:
+      '@helmsman/auth-vault':
+        specifier: workspace:*
+        version: link:../../packages/auth-vault
+      '@helmsman/context-engine':
+        specifier: workspace:*
+        version: link:../../packages/context-engine
       '@helmsman/core-orchestrator':
         specifier: workspace:*
         version: link:../../packages/core-orchestrator
@@ -26,6 +32,9 @@ importers:
       '@helmsman/execution-engines':
         specifier: workspace:*
         version: link:../../packages/execution-engines
+      '@helmsman/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
       '@helmsman/learning':
         specifier: workspace:*
         version: link:../../packages/learning
@@ -35,6 +44,9 @@ importers:
       '@helmsman/verification':
         specifier: workspace:*
         version: link:../../packages/verification
+      '@helmsman/workflows':
+        specifier: workspace:*
+        version: link:../../packages/workflows
       next:
         specifier: ^15.1.6
         version: 15.5.18(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -51,6 +63,24 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.0
         version: 19.2.3(@types/react@19.2.15)
+
+  packages/auth-vault:
+    dependencies:
+      '@helmsman/shared':
+        specifier: workspace:*
+        version: link:../shared
+
+  packages/context-engine:
+    dependencies:
+      '@helmsman/integrations':
+        specifier: workspace:*
+        version: link:../integrations
+      '@helmsman/learning':
+        specifier: workspace:*
+        version: link:../learning
+      '@helmsman/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/core-orchestrator:
     dependencies:
@@ -85,6 +115,15 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
 
+  packages/integrations:
+    dependencies:
+      '@helmsman/auth-vault':
+        specifier: workspace:*
+        version: link:../auth-vault
+      '@helmsman/shared':
+        specifier: workspace:*
+        version: link:../shared
+
   packages/learning:
     dependencies:
       '@helmsman/shared':
@@ -102,6 +141,37 @@ importers:
       '@helmsman/shared':
         specifier: workspace:*
         version: link:../shared
+
+  packages/workflows:
+    dependencies:
+      '@helmsman/context-engine':
+        specifier: workspace:*
+        version: link:../context-engine
+      '@helmsman/core-orchestrator':
+        specifier: workspace:*
+        version: link:../core-orchestrator
+      '@helmsman/integrations':
+        specifier: workspace:*
+        version: link:../integrations
+      '@helmsman/learning':
+        specifier: workspace:*
+        version: link:../learning
+      '@helmsman/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@helmsman/verification':
+        specifier: workspace:*
+        version: link:../verification
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@helmsman/data':
+        specifier: workspace:*
+        version: link:../data
+      '@helmsman/execution-engines':
+        specifier: workspace:*
+        version: link:../execution-engines
 
 packages:
 

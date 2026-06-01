@@ -8,7 +8,7 @@ export async function GET(
   ctx: { params: Promise<{ id: string }> },
 ): Promise<Response> {
   const { id } = await ctx.params;
-  const host = getHost();
+  const host = await getHost();
   const run = await host.store.getRun(id);
   if (!run) return Response.json({ error: "not found" }, { status: 404 });
   const steps = await host.store.listSteps(id);
@@ -21,7 +21,7 @@ export async function POST(
   ctx: { params: Promise<{ id: string }> },
 ): Promise<Response> {
   const { id } = await ctx.params;
-  const host = getHost();
+  const host = await getHost();
   const body = (await req.json()) as { action?: "pause" | "resume" | "stop" };
 
   switch (body.action) {

@@ -12,7 +12,7 @@ There is no direct LLM dependency.
 
 > Full design and phased plan: see [`PROMPT.md`](./PROMPT.md).
 
-## Status — Phase 0 (Foundation) ✅
+## Status — Phase 0 (Foundation) + Phase 1 (Fix-bug MVP) ✅
 A working, verified backbone:
 - **Config-driven workflow engine** with durable **start / pause / resume / stop** (resumes from a
   persisted cursor).
@@ -26,8 +26,15 @@ A working, verified backbone:
 - **Mission Control** (Next.js): list/start workflows, pick an engine, pause/resume/stop runs, and
   watch a live SSE event feed.
 
-Phase 1 (flagship **Fix-bug** workflow end-to-end with real Jira/Bitbucket/ELK integrations) is
-scaffolded and next.
+### Phase 1 — flagship **Fix-bug** workflow (end-to-end)
+- **Integrations**: Jira, Bitbucket/Stash (Server/DC), and ELK clients — real HTTP impls **and**
+  offline fixtures behind one interface, so the workflow runs fully offline or against live systems.
+- **Auth vault**: PAT / Basic / OAuth credentials in an **AES-256-GCM encrypted** local vault.
+- **Context engine**: single-repo understanding (file map + code search) + token-budgeted org-context
+  assembly (Jira + ELK + code + learned lessons).
+- **Fix-bug workflow**: `assemble-context → propose-fix → self-verify → open-PR-or-gate`. It scores
+  its own confidence and **opens a Bitbucket PR** (commenting the link on Jira) when confident, or
+  **gates for human approval** when not — selectable between Amp and Copilot.
 
 ## Monorepo layout
 ```
@@ -36,7 +43,11 @@ packages/execution-engines   ExecutionEngine + Amp / Copilot / Mock adapters + r
 packages/data                RunStore abstraction (SQLite + in-memory)
 packages/verification        pre/during/post checks + confidence scoring
 packages/learning            outcome capture, lessons, confidence calibration
+packages/auth-vault          encrypted credential vault (PAT / Basic / OAuth)
+packages/integrations        Jira, Bitbucket/Stash, ELK clients (+ offline fixtures)
+packages/context-engine      repo map + token-budgeted org-context assembly
 packages/core-orchestrator   durable workflow engine (start/pause/resume/stop)
+packages/workflows           persona workflows (flagship: fix-bug)
 apps/mission-control         Next.js control plane (UI + API + SSE)
 ```
 

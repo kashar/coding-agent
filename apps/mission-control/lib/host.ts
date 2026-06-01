@@ -8,7 +8,9 @@ import {
 } from "@helmsman/execution-engines";
 import { InMemoryLearningStore, type LearningStore } from "@helmsman/learning";
 import { Orchestrator, WorkflowRegistry } from "@helmsman/core-orchestrator";
+import { createFixBugWorkflow } from "@helmsman/workflows";
 import { builtinWorkflows } from "./workflows";
+import { buildFixBugDeps, buildVault } from "./fix-bug-deps";
 
 /**
  * Process-wide Helmsman runtime host. Cached on globalThis so Next.js hot-reload and multiple
@@ -26,10 +28,10 @@ export interface Host {
 
 declare global {
   // eslint-disable-next-line no-var
-  var __helmsmanHost: Host | undefined;
+  var __helmsmanHost: Promise<Host> | undefined;
 }
 
-function build(): Host {
+async function build(): Promise<Host> {
   const logger = createLogger("info", { component: "mission-control" });
   const bus = new InProcessEventBus();
   const store = new SqliteRunStore();
@@ -43,11 +45,16 @@ function build(): Host {
   const workflows = new WorkflowRegistry();
   for (const def of builtinWorkflows) workflows.register(def);
 
+  // Register the flagship config-driven Fix-bug workflow (real clients when configured).
+  const vault = buildVault();
+  const fixBugDeps = await buildFixBugDeps(learning, vault);
+  workflows.register(createFixBugWorkflow(fixBugDeps));
+
   const orchestrator = new Orchestrator({ store, workflows, engines, bus, logger, learning });
   return { store, bus, engines, workflows, learning, orchestrator };
 }
 
-export function getHost(): Host {
+export function getHost(): Promise<Host> {
   if (!globalThis.__helmsmanHost) globalThis.__helmsmanHost = build();
   return globalThis.__helmsmanHost;
 }

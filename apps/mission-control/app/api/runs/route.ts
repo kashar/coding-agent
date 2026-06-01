@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 /** List runs plus the registered workflows and engines (for the dashboard controls). */
 export async function GET(): Promise<Response> {
-  const host = getHost();
+  const host = await getHost();
   const [runs, engines] = [await host.store.listRuns({ limit: 100 }), host.engines.list()];
   const workflows = host.workflows.list().map((w) => ({
     id: w.id,
@@ -20,7 +20,7 @@ export async function GET(): Promise<Response> {
 
 /** Start a workflow run. Body: { workflowId, input, preferredEngineId? }. */
 export async function POST(req: Request): Promise<Response> {
-  const host = getHost();
+  const host = await getHost();
   const body = (await req.json()) as {
     workflowId?: string;
     input?: unknown;

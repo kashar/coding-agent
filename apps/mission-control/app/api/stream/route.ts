@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 /** Server-Sent Events stream of all Helmsman run/step events for the live Mission Control view. */
 export async function GET(): Promise<Response> {
-  const host = getHost();
+  const host = await getHost();
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream<Uint8Array>({
