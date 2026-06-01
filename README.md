@@ -1,71 +1,116 @@
-![Build](https://github.com/embabel/embabel-agent/actions/workflows/maven.yml/badge.svg)
+# ⎈ Helmsman — Agentic SDLC Platform
 
-[//]: # ([![Quality Gate Status]&#40;https://sonarcloud.io/api/project_badges/measure?project=embabel_embabel-agent&metric=alert_status&token=d275d89d09961c114b8317a4796f84faf509691c&#41;]&#40;https://sonarcloud.io/summary/new_code?id=embabel_embabel-agent&#41;)
+Helmsman is an **engine-agnostic, self-checking, self-improving** agentic platform for the
+software development lifecycle. It reads codebases, pulls business and org context from enterprise
+systems (Jira, Confluence, Bitbucket/Stash, ELK, Bamboo) via MCP, and runs autonomous workflows
+for **Dev, QA, Support, and BA** teams — all observable and controllable from a **Mission Control**
+UI.
 
-[//]: # ([![Bugs]&#40;https://sonarcloud.io/api/project_badges/measure?project=embabel_embabel-agent&metric=bugs&#41;]&#40;https://sonarcloud.io/summary/new_code?id=embabel_embabel-agent&#41;)
+All model/coding work flows through a single `ExecutionEngine` seam with **co-equal Amp
+(Sourcegraph)** and **GitHub Copilot** adapters (plus a deterministic Mock engine for offline dev).
+There is no direct LLM dependency.
 
-![Kotlin](https://img.shields.io/badge/kotlin-%237F52FF.svg?style=for-the-badge&logo=kotlin&logoColor=white)
-![Java](https://img.shields.io/badge/java-%23ED8B00.svg?style=for-the-badge&logo=openjdk&logoColor=white)
-![Spring](https://img.shields.io/badge/spring-%236DB33F.svg?style=for-the-badge&logo=spring&logoColor=white)
-![Apache Tomcat](https://img.shields.io/badge/apache%20tomcat-%23F8DC75.svg?style=for-the-badge&logo=apache-tomcat&logoColor=black)
-![Apache Maven](https://img.shields.io/badge/Apache%20Maven-C71A36?style=for-the-badge&logo=Apache%20Maven&logoColor=white)
-![ChatGPT](https://img.shields.io/badge/chatGPT-74aa9c?style=for-the-badge&logo=openai&logoColor=white)
-![Jinja](https://img.shields.io/badge/jinja-white.svg?style=for-the-badge&logo=jinja&logoColor=black)
-![JSON](https://img.shields.io/badge/JSON-000?logo=json&logoColor=fff)
-![GitHub Actions](https://img.shields.io/badge/github%20actions-%232671E5.svg?style=for-the-badge&logo=githubactions&logoColor=white)
-![SonarQube](https://img.shields.io/badge/SonarQube-black?style=for-the-badge&logo=sonarqube&logoColor=4E9BCD)
-![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
-![IntelliJ IDEA](https://img.shields.io/badge/IntelliJIDEA-000000.svg?style=for-the-badge&logo=intellij-idea&logoColor=white)
+> Full design and phased plan: see [`PROMPT.md`](./PROMPT.md).
 
-<img align="left" src="https://github.com/embabel/embabel-agent/blob/main/embabel-agent-api/images/315px-Meister_der_Weltenchronik_001.jpg?raw=true" width="180">
+## Status — Phase 0 (Foundation) + Phase 1 (Fix-bug MVP) ✅
+A working, verified backbone:
+- **Config-driven workflow engine** with durable **start / pause / resume / stop** (resumes from a
+  persisted cursor).
+- **Execution engines**: `ExecutionEngine` interface + **Amp**, **Copilot**, and **Mock** adapters,
+  selected by a per-run/per-workflow policy (overridable from Mission Control).
+- **Verification**: pre/during/post checks → a calibrated **confidence score**; low confidence
+  flags work for human approval.
+- **Learning** (skeleton): captures run outcomes and a lessons store; computes confidence
+  calibration error for self-improvement.
+- **Local-first persistence** via Node's built-in `node:sqlite` (Postgres-ready abstraction).
+- **Mission Control** (Next.js): list/start workflows, pick an engine, pause/resume/stop runs, and
+  watch a live SSE event feed.
 
-&nbsp;&nbsp;&nbsp;&nbsp;
+### Phase 1 — flagship **Fix-bug** workflow (end-to-end)
+- **Integrations**: Jira, Bitbucket/Stash (Server/DC), and ELK clients — real HTTP impls **and**
+  offline fixtures behind one interface, so the workflow runs fully offline or against live systems.
+- **Auth vault**: PAT / Basic / OAuth credentials in an **AES-256-GCM encrypted** local vault.
+- **Context engine**: single-repo understanding (file map + code search) + token-budgeted org-context
+  assembly (Jira + ELK + code + learned lessons).
+- **Fix-bug workflow**: `assemble-context → propose-fix → self-verify → open-PR-or-gate`. It scores
+  its own confidence and **opens a Bitbucket PR** (commenting the link on Jira) when confident, or
+  **gates for human approval** when not — selectable between Amp and Copilot.
 
-&nbsp;&nbsp;&nbsp;&nbsp;
+### Phase 2 — full app coverage, more workflows, MCP gateway
+- **Confluence + Bamboo** integrations added (clients + offline fixtures) → all five enterprise apps
+  (Jira, Confluence, Bitbucket/Stash, ELK, Bamboo) are covered.
+- **MCP gateway**: integrations exposed as a unified, schema-validated **tool registry** with
+  **per-task scoping** (a workflow step can attach extra tools/context just for that task).
+- **Four new config-driven workflows** (each persona-tagged, registered in one call):
+  `trace-request` (Support/QA), `triage` (Support/QA), `write-jira-stories` (BA, gated write),
+  `architecture-diagram` (Architect, Mermaid → optional Confluence publish).
 
-# Embabel Coding Agent
+### Phase 4 — full persona coverage, durability, real edits, approvals
+- **Solution-design** (Architect/BA) and **business-analysis** (BA) workflows complete the persona set.
+- **Human-approval action**: gated runs can be **approved** from Mission Control to proceed with
+  side-effects (the Fix-bug PR), via an `approved` input flag.
+- **Real code edits**: Amp/Copilot adapters capture concrete `changedFiles` + `diff` via **git**
+  after a task runs against a working tree.
+- **Durability**: a Postgres-backed `RunStore` (`PgRunStore`, selected by `HELMSMAN_PG_URL`) and
+  **crash-recovery** that turns runs orphaned by a restart back into resumable ones on startup.
+- **Mission Control**: lessons inspector + approve button.
 
-Headless coding agent built on Embabel agent platform, for use in developing Embabel and
-as an open source project in its own right.
+### Built for any org, any project, any stack — and large codebases
+- **Any technology**: the context engine covers 50+ languages out of the box and accepts custom
+  extensions; nothing is tied to a specific build system or framework.
+- **Large/complex codebases**: instead of dumping files, `RepoMap` does **relevance-ranked
+  retrieval** across the whole tree, honours `.gitignore`, applies size/file-count guards to stay
+  tractable on monorepos, and extracts **cross-language symbol outlines** so the agent reasons
+  about structure, not just text.
+- **Any organisation/project**: integration endpoints, credentials (vault), the target repo
+  (`HELMSMAN_REPO_DIR`), branch, and engine policy are all configuration — switch orgs/projects
+  without code changes. Workflows, personas, and MCP tools are added declaratively.
 
-## Aims
+### Phase 3 — closed self-learning loop + richer Mission Control
+- **Durable learning** (`SqliteLearningStore`): outcomes and lessons persist across restarts.
+- **Closed loop**: every run records an outcome; failures and low-confidence runs auto-generate
+  **lessons** that the context engine injects into future runs. An **engine advisor** recommends the
+  best-performing engine per workflow (from past success rates) and the orchestrator prefers it.
+- **Confidence calibration**: Brier-style predicted-vs-realized error tracked over time.
+- **Mission Control**: a **metrics dashboard** (runs by status/workflow, avg confidence, gated
+  count, engine usage, calibration, learned best-engine) and a **run-detail page** with the full
+  step timeline (status, engine, checks, output) and pause/resume/stop controls.
 
-This project aims to provide a full-fledged coding agent that means the
-Embabel team's work is accelerated by AI, yet without the use of any commercial
-coding agents.
+## Monorepo layout
+```
+packages/shared              types, zod schemas, event bus, logger, Result
+packages/execution-engines   ExecutionEngine + Amp / Copilot / Mock adapters + registry
+packages/data                RunStore abstraction (SQLite + in-memory)
+packages/verification        pre/during/post checks + confidence scoring
+packages/learning            outcome capture, lessons, confidence calibration
+packages/auth-vault          encrypted credential vault (PAT / Basic / OAuth)
+packages/integrations        Jira, Confluence, Bitbucket/Stash, ELK, Bamboo (+ offline fixtures)
+packages/mcp-gateway         unified MCP-style tool registry (per-task scoping)
+packages/context-engine      repo map + token-budgeted org-context assembly
+packages/core-orchestrator   durable workflow engine (start/pause/resume/stop)
+packages/workflows           persona workflows: fix-bug, trace-request, triage, write-jira-stories,
+                             architecture-diagram, solution-design, business-analysis
+apps/mission-control         Next.js control plane (UI + API + SSE + tool registry)
+```
 
-Key capabilities include:
+## Quick start
+```bash
+pnpm install
+pnpm build                 # build all packages
+pnpm test                  # orchestrator pause/resume/stop + learning tests
+pnpm demo:fixbug           # offline end-to-end demo on the Mock engine
 
-- Explaining code
-- Creating new projects using Embabel
-- Making code changes across multiple files
-- Writing documentation
-- Combining access to project code with internet access: for example, to research new APIs.
+# Mission Control
+pnpm --filter @helmsman/mission-control dev    # http://localhost:4317
+```
 
-> This project is in an early stage of development.
+### Engine configuration
+The Amp and Copilot adapters shell out to their CLIs (`amp`, `copilot`); override the binaries with
+`HELMSMAN_AMP_BIN` / `HELMSMAN_COPILOT_BIN`. When neither is available the engine policy falls back
+to the deterministic Mock engine, so the whole platform runs offline.
 
-## Futures
+## Principles
+Engine-agnostic · config-driven extensibility (workflows, personas, MCP servers, context per task) ·
+self-checking (confidence + human gates) · self-learning (lessons + calibration) · fully observable.
 
-- Support for build systems other than Maven
-- Better project selection.
-- Enhanced language support. See `SymbolSearch`
-- Understanding libraries in use via accessing source code, via maven repositories
-- Further effort to reduce token usage
-- Integration with Spring repository to allow choice of project to work on
-- Deep integration with GitHub to allow presentation of changes via PR
-- Automated review of PRs
-- (possible) chat mode to allow interaction with agent during a process flow
-
-## Using this project
-
-Coder will find Maven projects under peer directories of the directory in which it is started.
-
-Run with the shell. The following commands are available. Note that some commands require a lengthy string to be
-enclosed in double quotes.
-
-- `set-focus <project>`: Focus on a project, e.g. `focus embabel-agent`. The string must match the last path segment of
-  the project name, e.g. `embabel-agent-api`.
-- `focus`: Show the current focus project.
-- `chat`: Enter chat mode, where you can ask the agent to perform tasks such as explaining code or modifying it.
-
-> Chat presently has no memory, so it will not remember the context of previous messages.
+Requires Node ≥ 22.5 (for `node:sqlite`).

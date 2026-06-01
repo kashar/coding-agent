@@ -1,0 +1,32 @@
+{
+  "name": "@helmsman/mission-control",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 4317",
+    "build": "next build",
+    "start": "next start -p 4317",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@helmsman/auth-vault": "workspace:*",
+    "@helmsman/context-engine": "workspace:*",
+    "@helmsman/core-orchestrator": "workspace:*",
+    "@helmsman/data": "workspace:*",
+    "@helmsman/execution-engines": "workspace:*",
+    "@helmsman/integrations": "workspace:*",
+    "@helmsman/learning": "workspace:*",
+    "@helmsman/mcp-gateway": "workspace:*",
+    "@helmsman/shared": "workspace:*",
+    "@helmsman/verification": "workspace:*",
+    "@helmsman/workflows": "workspace:*",
+    "next": "^15.1.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
+  }
+}

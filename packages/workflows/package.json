@@ -1,0 +1,32 @@
+{
+  "name": "@helmsman/workflows",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test dist/*.test.js"
+  },
+  "dependencies": {
+    "@helmsman/shared": "workspace:*",
+    "@helmsman/core-orchestrator": "workspace:*",
+    "@helmsman/integrations": "workspace:*",
+    "@helmsman/context-engine": "workspace:*",
+    "@helmsman/verification": "workspace:*",
+    "@helmsman/learning": "workspace:*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@helmsman/data": "workspace:*",
+    "@helmsman/execution-engines": "workspace:*"
+  }
+}

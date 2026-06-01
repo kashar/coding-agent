@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist"
+  },
+  "references": [
+    { "path": "../shared" },
+    { "path": "../core-orchestrator" },
+    { "path": "../integrations" },
+    { "path": "../context-engine" },
+    { "path": "../verification" },
+    { "path": "../learning" },
+    { "path": "../data" },
+    { "path": "../execution-engines" }
+  ],
+  "include": ["src/**/*"]
+}
