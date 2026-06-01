@@ -18,7 +18,9 @@ out/
 *.vault
 *.sqlite
 *.sqlite-*
-data/
+# Runtime SQLite data dirs only — NOT the packages/data source package.
+/data/
+/apps/*/data/
 
 # logs
 *.log
