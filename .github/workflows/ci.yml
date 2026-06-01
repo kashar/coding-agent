@@ -16,12 +16,11 @@ jobs:
         with:
           node-version: 22
 
-      # Provision pnpm via corepack (bundled with Node) — no marketplace action,
-      # version comes from the "packageManager" field in package.json.
-      - name: Enable pnpm
+      # Provision pnpm via the preinstalled npm (most network-light, no corepack
+      # signature step, no marketplace action). Version matches packageManager.
+      - name: Install pnpm
         run: |
-          corepack enable
-          corepack prepare pnpm@10.33.0 --activate
+          npm install -g pnpm@10.33.0
           pnpm --version
 
       - name: Install dependencies
